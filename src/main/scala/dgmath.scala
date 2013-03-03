@@ -811,6 +811,7 @@ object lsm {
 
     var step = initStep
     var newCFMatrix = cfMatrix
+    var abort = false // 1.01
     while (step > 0) {
       if (step%params.uiUpdateInterval == 0) {
         if (callerService != null)
@@ -821,14 +822,20 @@ object lsm {
           case TIMEOUT => { }
           case CalcStopLSM => {
             Log.d(TAG, "CalcStopLSM" )
-            callerService ! lsmAbortReport
-            exit()
+            abort = true // 1.01
           }
         }
       }
 
-      newCFMatrix = calcCFAtStep(step, basisFn, params, priceMatrix, newCFMatrix)
+      // 1.01
+      if (!abort)
+        newCFMatrix = calcCFAtStep(step, basisFn, params, priceMatrix, newCFMatrix)
       step -= 1
+    }
+    // 1.01
+    if (abort) {
+      callerService ! lsmAbortReport
+      exit()
     }
     newCFMatrix
   }

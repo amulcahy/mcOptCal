@@ -61,11 +61,13 @@ class Calc extends Actor {
           val endTime = System.nanoTime
           //Debug.stopMethodTracing()
           callerService ! mcOptCalServiceLSMResult(lsmOV, ((endTime-startTime)/1e6).toLong)
+          // 1.01 exit()
+        }
+        case CalcStopLSM => {
+          // 1.01
+          Log.d(TAG, "CalcStopLSM" )
           exit()
         }
-        /*case CalcStopLSM =>
-          Log.d(TAG, "CalcStopLSM" )
-          exit()*/
       }
     }
   }
@@ -238,18 +240,19 @@ class mcOptCalService extends Service with Actor {
   def stopLSM = {
     Log.d(TAG, "mcOptCalService.stopLSM" )
     if (calcRunning) {
-      Log.d(TAG, "stopCalc: if {" )
+      //Log.d(TAG, "stopCalc: if {" )
       working = false
       calcRunning = false
       calc ! CalcStopLSM
 
-      val contentText: CharSequence = "Stopping LSM calculation"
+      /* 1.01 val contentText: CharSequence = "Stopping LSM calculation"
       val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
       val context: Context = getApplicationContext()
       val notificationIntent = new Intent(this, classOf[MainActivity])
       val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
       notification.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
-      mNM.notify(1, notification)
+      mNM.notify(1, notification) */
+      this.stopSelf
     }
   }
 
@@ -402,6 +405,35 @@ class MainActivity extends Activity with TypedActivity with Actor {
       mService = service.asInstanceOf[mcOptCalService#mcOptCalServiceBinder].getService
       mBound = true
       mService.mainActor = mainActor
+
+      // 1.01 start service only when running LSM
+      if(mBound) {
+        if (!mService.calcRunning) {
+
+          val stateData = StateData.restoreFromPreferences(getApplicationContext)
+          val params = LsmParams(
+            stateData.isPut,
+            stateData.numPaths,
+            stateData.timeToExpiration.toInt,
+            stateData.numSteps,
+            stateData.stock,
+            stateData.exercisePrice,
+            stateData.riskFreeRate,
+            stateData.volatility,
+            stateData.numSamples,
+            stateData.threshold,
+            stateData.uiUpdateInterval,
+            getApplicationContext
+            )
+
+          progress1.setVisibility(View.VISIBLE)
+          progress1.setProgress(0)
+          val newData = "\nStart LSM calculation:\n"+params
+          cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
+          updateOutputText(cacheData.statusStr)
+          mService.startLSM(params)
+        }
+      }
     }
 
     def onServiceDisconnected(className: ComponentName) {
@@ -533,40 +565,18 @@ class MainActivity extends Activity with TypedActivity with Actor {
         }
       })
 
-    intent = new Intent(MainActivity.this, classOf[mcOptCalService])
-
-    startService(intent)
-    bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
     btn3.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
           cleanTempFiles //todo
-          if(mBound) {
-            if (!mService.calcRunning) {
+          // 1.01 start service only when running LSM
+          Log.d(TAG, "Starting mcOptCal Service" )
+          intent = new Intent(MainActivity.this, classOf[mcOptCalService])
 
-              val stateData = StateData.restoreFromPreferences(getApplicationContext)
-              val params = LsmParams(
-                stateData.isPut,
-                stateData.numPaths,
-                stateData.timeToExpiration.toInt,
-                stateData.numSteps,
-                stateData.stock,
-                stateData.exercisePrice,
-                stateData.riskFreeRate,
-                stateData.volatility,
-                stateData.numSamples,
-                stateData.threshold,
-                stateData.uiUpdateInterval,
-                getApplicationContext
-                )
+          Log.d(TAG, "Starting mcOptCal Service" )
+          startService(intent)
+          bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+          //bindService(intent, mConnection, 0)
 
-              progress1.setVisibility(View.VISIBLE)
-              progress1.setProgress(0)
-              val newData = "\nStart LSM calculation:\n"+params
-              cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
-              updateOutputText(cacheData.statusStr)
-              mService.startLSM(params)
-            }
-          }
         }
       })
 
@@ -628,7 +638,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
           Log.d(TAG, "MCReportComplete: "+str )
           this.runOnUiThread(new Runnable() {
               override def run() {
-                if (mBound) {
+                // 1.01 if (mBound) {
                   if (mService.calcComplete) {
                     Log.e(TAG, "mService.calcComplete")
                     cleanTempFiles //todo
@@ -639,16 +649,29 @@ class MainActivity extends Activity with TypedActivity with Actor {
                     updateOutputText(cacheData.statusStr)
                     mService.calcComplete = false
                   }
-                  if (mService.progressState) {
+                  /* 1.01 if (mService.progressState) {
                     progress1.setVisibility(View.VISIBLE)
                     progress1.setProgress(mService.progressVal)
-                  } else {
+                  } else {*/
                     progress1.setVisibility(View.INVISIBLE)
-                  }
+                  // 1.01 }
 
-                }
+                //}
               }
             })
+
+          // 1.01
+          Log.d(TAG, "Stopping mcOptCal Service" )
+          if(mBound) {
+            Log.d(TAG, "stopping LSM" )
+            mService.stopLSM
+            Log.d(TAG, "unbinding service" )
+            unbindService(mConnection)
+            Log.d(TAG, "set mBound to false" )
+            mBound = false
+          }
+          Log.d(TAG, "stopService" )
+          stopService(intent)
         }
         case MCReportAbort(str) => {
           Log.d(TAG, "MCReportAbort: "+str )
@@ -713,6 +736,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
     mBound = prefs.getString("mBound", "false").toBoolean
 
     intent = new Intent(MainActivity.this, classOf[mcOptCalService])
+    bindService(intent, mConnection, 0) // 1.01
 
     mGLSurfaceViewB.onResume()
     updateOutputText(cacheData.statusStr)
@@ -737,7 +761,10 @@ class MainActivity extends Activity with TypedActivity with Actor {
 
   override def onDestroy() {
     Log.d(TAG, "onDestroy" )
-    unbindService(mConnection)
+    if(mBound) {
+      unbindService(mConnection)
+      mBound = false
+    }
     super.onDestroy
   }
 

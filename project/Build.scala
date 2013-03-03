@@ -8,7 +8,7 @@ object General {
     name := "mcOptCal",
     version := "1.0",
     versionCode := 1,
-    versionName := "1.0",
+    versionName := "1.01",
     scalaVersion := "2.9.2",
     platformName in Android := "android-15"
   )
