@@ -1,0 +1,74 @@
+<resources>
+  <string name="app_name">mcOptCal</string>
+  <string name="bs">BS</string>
+  <string name="lsm">LSM</string>
+  <string name="ok">OK</string>
+  <string name="cancel">CANCEL</string>
+  <string name="parameters">PARAMETERS</string>
+  <string name="copy">COPY</string>
+  <string name="settings">SETTINGS</string>
+  <string name="help">HELP</string>
+  <string name="clr">CLR</string>
+
+  <string name="call_put">Call / Put</string>
+  <string name="call">Call</string>
+  <string name="put">Put</string>
+  <string name="stock_price">Current Stock Price</string>
+  <string name="exercise_price">Exercise / Strike Price</string>
+  <string name="risk_free_rate">Risk Free Rate</string>
+  <string name="volatility">Volatility</string>
+  <string name="time_to_expiration">Time to Expiration</string>
+  <string name="numpaths">numPaths</string>
+  <string name="numsteps">numSteps</string>
+  <string name="numsamples">numSamples</string>
+  <string name="threshold">Threshold</string>
+  <string name="uiupdateinterval">uiUpdateInterval</string>
+
+<string name="help_content">
+\nmcOptCal\n
+An App to calculate American and Bermudan option prices using the LSM (Least Squares Monte Carlo) method. European option prices can also be calculated using the Black Scholes formula. An android service is used to enable long running calculations to continue in the background while other activities are in the foreground.\n
+Note: if the parameters for the number of monte carlo simulation paths or time steps are set too large, the device responsiveness may slow down while the calculation is running.\n
+\n
+Web: http://dragongate-technologies.com\n
+\n
+BS\n
+Calculate the value of a European option using the Black Scholes formula.
+\n
+\n
+LSM\n
+Calculate the value of an American / Bermudan option using the Least 
+Squares Monte-Carlo method.\n
+\n
+PARAMETERS\n
+Input the option parameters.\n
+Call / Put: Call or Put type option.\n
+Stock: Current stock price.\n
+Exercise: Exercise (Strike) price of the option.\n
+Rate: The annual risk free rate.\n
+Volatility: The Volatility.\n
+Expiration: Time to expiry in years.\n
+numPaths: The number of monte-carlo simulation paths. Too large a value may slow down the device response.\n
+numSteps: The number of exercise steps per year.\n
+\n
+COPY\n
+Copy the output window contents to the clipboard.\n
+\n
+SETTINGS\n
+Adjust various settings.\n
+numSamples: The number of paths to display on the graph. Too large a value may cause errors.\n
+Threshold: Objects larger than this size are cached on the SD card. The optimum value is dependent on device memory. Too large a number may cause out of memory errors.\n
+uiUpdateInterval: The interval between UI updates during LSM calculations.\n
+\n
+CLR\n
+Clear the output window.\n
+\n
+CANCEL\n
+Cancel a running LSM calculation.\n
+\n
+HELP\n
+This help menu.\n
+\n
+</string>
+
+<string name="copy_content">Copied output to clipboard\n</string>
+</resources>

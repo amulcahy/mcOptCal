@@ -1,0 +1,9 @@
+*.class
+*.log
+*~
+
+src/test/
+target/
+tests/
+
+

@@ -1,0 +1,56 @@
+<resources>
+  <string name="cancel">キャンセル</string>
+  <string name="parameters">パラメーター</string>
+  <string name="copy">コピー</string>
+  <string name="settings">設定</string>
+  <string name="help">ヘルプ</string>
+
+<string name="help_content">
+\nmcOptCal\n
+最小二乗モンテカルロ法（Least Squares Monte Carlo Method）を用い、バミューダン・アメリカンオプション価格を計算するアプリ。\n
+また、ブラック-ショールズ方程式を用い、ヨーロピアンオプション価格も計算できる。\n
+Androidサービスを利用することで、別のアクティビティをフォールグラウンドで実行している間に、長い継続計算がバックグラウンドで行われる。\n
+注意：モンテカルロシミュレーションのパス数、行使ステップ数のパラメーターが大きすぎれば、計算中の端末動作が遅くなる場合がある。\n
+\n
+ウェブ： http://dragongate-technologies.com\n
+\n
+BS\n
+ブラック-ショールズ方程式で、ヨーロピアンオプション価格を計算。\n
+\n
+LSM\n
+最小二乗モンテカルロ法で、アメリカン・バミューダンオプション価格を計算。\n
+\n
+PARAMETERS\n
+オプション・パラメーターを入力。\n
+Call / Put: コール・プットオプション\n
+Stock: 原資産価格\n
+Exercise: 行使価格\n
+Rate: 短期金利\n
+Volatility: ボラティリティ\n
+Expiration: 満期期間（年）\n
+numPaths: モンテカルロシミュレーションのパス数。値が大きすぎれば、計算時に、端末の動作が遅くなる場合がある。\n
+numSteps: 1年の行使ステップ数\n
+\n
+COPY\n
+出力ウィンドウの内容をクリップボードにコピー。\n
+\n
+SETTINGS\n
+設定を変更。\n
+　numSamples: グラフのパスの数。 大きすぎる値は、エラーを引き起こす可能性がある。\n
+　Threshold: このサイズより大きなオブジェクトは、ＳＤカードでキャッシュされる。 最適値は、端末のメモリー容量などに依存する。\n
+　numSamples: グラフのパス数。 大きすぎる値は、エラーを発生させる可能性がある。\n
+　uiUpdateInterval: LSM計算時のUIアップデート間隔\n
+\n
+CLR\n
+出力ウィンドウ内容をクリア。\n
+\n
+CANCEL\n
+実行中のLSM計算を中断。\n
+\n
+HELP\n
+ヘルプメニューを表示。\n
+\n
+</string>
+
+  <string name="copy_content">出力をクリップボードにコピーした</string>
+</resources>
