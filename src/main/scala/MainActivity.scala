@@ -192,19 +192,7 @@ class mcOptCalService extends Service with Actor {
           statusStr = calcStr
           calcComplete = true
           progressState = false
-          progressVal = 100
-          /*val priceAryRows = lsmOV._3.length
-          val priceAryCols = lsmOV._3(0).length
-          priceAry = Array.ofDim[Double](priceAryRows, priceAryCols)
-          var i = 0
-          while (i < priceAryRows) {
-            var j = 0
-            while (j < priceAryCols) {
-              priceAry(i)(j) = lsmOV._3(i)(j)
-              j += 1
-            }
-            i += 1
-          }*/
+          //progressVal = 100
           notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
           mNM.notify(1, notification)
           mainActor ! MCReportComplete(calcStr)
@@ -245,35 +233,9 @@ class mcOptCalService extends Service with Actor {
       calcRunning = false
       calc ! CalcStopLSM
 
-      /* 1.01 val contentText: CharSequence = "Stopping LSM calculation"
-      val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
-      val context: Context = getApplicationContext()
-      val notificationIntent = new Intent(this, classOf[MainActivity])
-      val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
-      notification.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
-      mNM.notify(1, notification) */
       this.stopSelf
     }
   }
-
-  /*def stopCalc = {
-    Log.d(TAG, "CalcService.stopCalc" )
-    if (calcRunning) {
-      Log.d(TAG, "stopCalc: if {" )
-      working = false
-      calcRunning = false
-      calc ! CalcStop 
-
-      val contentText: CharSequence = "CalcService.stopCalc"
-      calcStr = calcStr+"[ "+contentText.toString+" ]"
-      val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
-      val context: Context = getApplicationContext()
-      val notificationIntent = new Intent(this, classOf[MainActivity])
-      val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
-      notification.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
-      mNM.notify(1, notification)
-    }
-  }*/
 
 }
 
@@ -389,8 +351,6 @@ class MainActivity extends Activity with TypedActivity with Actor {
   val mainActor = this
   var intent: Intent = null
   var calc: Calc = null
-  //var stateData: StateData = _
-  //var cacheData: CacheData = new CacheData(Array.fill(2, 2)(0d), "Starting...\n")
   var cacheData: CacheData = _
   var funcAry: Array[Array[Double]] = Array.fill(10, 10)(0d) //todo
 
@@ -617,19 +577,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
 
     Log.d(TAG, "updateOutputText")
     textview9mcresult.setText(text+"\n")
-    /*val posn = textview9mcresult.getBottom()
-    Log.d(TAG, "posn = "+posn)
-    val posn2 = scrollv1.getBottom()
-    Log.d(TAG, "posn2 = "+posn2)
-    scrollv1.smoothScrollTo(0, posn)*/
   }
-
-  /*protected override def onWindowFocusChanged(hasFocus: Boolean) {
-    if (hasFocus) {
-      val posn = textview9mcresult.getBottom()
-      scrollv1.smoothScrollTo(0, posn)
-    }
-  }*/
 
   def act() {
     loop {

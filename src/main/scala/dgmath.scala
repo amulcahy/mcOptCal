@@ -644,7 +644,7 @@ object lsm {
     priceMatrix: Matrix, 
     cfMatrix: Matrix
     ) => {
-    Log.d(TAG, "calcCFAtStep-Start" )
+    //Log.d(TAG, "calcCFAtStep-Start" )
     //val exerciseFn = (idx: Int, step: Int) => (params.strike - priceMatrix(idx, step))
     val exerciseFn = {
       if (params.isPut)
@@ -695,7 +695,7 @@ object lsm {
         i += 1
       }
       val contMatrix = regress(fnX, y)
-      Log.d(TAG, "calcCFAtStep-1" )
+      //Log.d(TAG, "calcCFAtStep-1" )
 
       i = 0
       var j = 0
@@ -717,7 +717,7 @@ object lsm {
         }
         i += 1
       }
-      Log.d(TAG, "calcCFAtStep-End" )
+      //Log.d(TAG, "calcCFAtStep-End" )
       cfMatrix
     }
   }
@@ -812,7 +812,7 @@ object lsm {
     var step = initStep
     var newCFMatrix = cfMatrix
     var abort = false // 1.01
-    while (step > 0) {
+    while ((step > 0) && !abort) { // 1.01
       if (step%params.uiUpdateInterval == 0) {
         if (callerService != null)
           callerService ! lsmStatusReport(step, params.numSteps)
