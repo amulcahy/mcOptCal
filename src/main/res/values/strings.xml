@@ -10,6 +10,7 @@
   <string name="help">HELP</string>
   <string name="clr">CLR</string>
 
+  <string name="payofffn">Payoff Function</string>
   <string name="call_put">Call / Put</string>
   <string name="call">Call</string>
   <string name="put">Put</string>

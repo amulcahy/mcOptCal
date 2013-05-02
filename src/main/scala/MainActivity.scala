@@ -241,6 +241,7 @@ class mcOptCalService extends Service with Actor {
 
 
 case class StateData(
+  payoffFnStr: String,
   isPut: Boolean,
   numPaths: Int,
   timeToExpiration: Double,
@@ -256,6 +257,7 @@ case class StateData(
 
   def saveToSharedPreferences(context: Context) {
     val prefsEdit = PreferenceManager.getDefaultSharedPreferences(context).edit()
+    prefsEdit.putString("payoffFnStr", payoffFnStr).commit()
     prefsEdit.putString("isPut", isPut.toString).commit()
     prefsEdit.putString("numPaths", numPaths.toString).commit()
     prefsEdit.putString("timeToExpiration", timeToExpiration.toString).commit()
@@ -273,6 +275,7 @@ case class StateData(
 case object StateData {
 
   def restoreFromPreferences(context: Context) = StateData( 
+    PreferenceManager.getDefaultSharedPreferences(context).getString("payoffFnStr", "STRIKE-MCPRICE"),
     PreferenceManager.getDefaultSharedPreferences(context).getString("isPut", "true").toBoolean,
     PreferenceManager.getDefaultSharedPreferences(context).getString("numPaths", "10000").toInt,
     PreferenceManager.getDefaultSharedPreferences(context).getString("timeToExpiration", "1.0").toDouble,
@@ -312,6 +315,7 @@ object CacheData {
   def load(context: Context): CacheData = {
     val dataDir = context.getExternalFilesDir(null)
     Log.e(TAG, "load")
+    Log.e(TAG, "dataDir = "+dataDir)
     ensureCacheDirExists()
     if ((new File(dataDir, fileName)).isFile()) {
       Log.e(TAG, "load-1")
@@ -372,6 +376,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
 
           val stateData = StateData.restoreFromPreferences(getApplicationContext)
           val params = LsmParams(
+            lsm.EqnParsers.parseEval(stateData.payoffFnStr),
             stateData.isPut,
             stateData.numPaths,
             stateData.timeToExpiration.toInt,
@@ -427,6 +432,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
         def onClick(v : View) {
           val stateData = StateData.restoreFromPreferences(getApplicationContext)
           val params = LsmParams(
+            lsm.EqnParsers.parseEval(stateData.payoffFnStr),
             stateData.isPut,
             stateData.numPaths,
             stateData.timeToExpiration.toInt,
@@ -722,12 +728,30 @@ class MainActivity extends Activity with TypedActivity with Actor {
     id match {
       case ParametersDlg => {
         val textEntryView = factory.inflate(R.layout.parameters_dialog, null)
-        new AlertDialog.Builder(this)
+        val alrtDialog: AlertDialog = new AlertDialog.Builder(this)
         .setIcon(R.drawable.logo)
         .setTitle(R.string.parameters)
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
+            }
+          })
+        .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            override def onClick(dialog: DialogInterface, id: Int) {
+              textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+
+              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+              dialog.cancel()
+            }
+          })
+        .create()
+        alrtDialog.show()
+        alrtDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(new OnClickListener() {
+            override def onClick(view: View) {
+              val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
+              // TODO: isPut is unnecessary
               val isPut = {
                 val id = textEntryView.findViewById(R.id.radiogroup2).asInstanceOf[RadioGroup].getCheckedRadioButtonId
                 ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString == "Put")
@@ -741,38 +765,43 @@ class MainActivity extends Activity with TypedActivity with Actor {
               val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
               val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
 
-              val newStateData = StateData(
-                isPut,
-                numPaths,
-                timeToExpiration,
-                numSteps,
-                stock,
-                exercisePrice,
-                riskFreeRate,
-                volatility,
-                stateData.numSamples,
-                stateData.threshold,
-                stateData.uiUpdateInterval )
-              newStateData.saveToSharedPreferences(getApplicationContext)
+              val eqn = lsm.EqnParsers.parse(payoffFnStr)
+              eqn match {
+                case lsm.ErrorText(e) => {
+                  Log.d(TAG, e )
+                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError("Parse Error!")
+                }
+                case _ => {
+                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-              val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-              prefs.edit().putString("stateDataSaved", "true").commit()
+                  val newStateData = StateData(
+                    payoffFnStr,
+                    isPut,
+                    numPaths,
+                    timeToExpiration,
+                    numSteps,
+                    stock,
+                    exercisePrice,
+                    riskFreeRate,
+                    volatility,
+                    stateData.numSamples,
+                    stateData.threshold,
+                    stateData.uiUpdateInterval )
+                  newStateData.saveToSharedPreferences(getApplicationContext)
 
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+                  val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                  prefs.edit().putString("stateDataSaved", "true").commit()
 
-              dialog.dismiss()
+                  val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+                  imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+                  alrtDialog.dismiss()
+                }
+              }
+
             }
           })
-        .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.cancel()
-            }
-          })
-        .create()
+        alrtDialog
       }
       case SettingsDlg => {
         val textEntryView = factory.inflate(R.layout.settings_dialog, null)
@@ -787,6 +816,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
               val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
 
               val newStateData = StateData(
+                stateData.payoffFnStr,
                 stateData.isPut,
                 stateData.numPaths,
                 stateData.timeToExpiration,
@@ -858,6 +888,9 @@ class MainActivity extends Activity with TypedActivity with Actor {
             else
               R.id.radioBtnCall
           })
+
+        d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText("STRIKE-MCPRICE")
+
         d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
         d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
         d.findViewById(R.id.edittext3).asInstanceOf[EditText].setText(stateData.riskFreeRate.toString)

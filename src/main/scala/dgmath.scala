@@ -25,6 +25,7 @@ import scala.annotation.tailrec
 import scala.collection.parallel.immutable._
 import scala.collection.parallel.mutable._
 import scala.concurrent.ops._
+import scala.util.parsing.combinator._
 import scala.util.Random
 import scala.math._
 
@@ -494,6 +495,7 @@ object Matrix {
 /**
   * LsmParams is container for the least squares Monte Carlo algorithm parameters.
   *
+  * @param payoffFn The the payoff function.
   * @param numPaths The number of simulation paths.
   * @param expiry The number of years until expiry.
   * @param numSteps The number of exercise steps per year.
@@ -509,6 +511,7 @@ object Matrix {
   * @note dT = expiry / numSteps
   */
 case class LsmParams(
+  payoffFn: (Double, LsmParams) => Double,
   isPut: Boolean,
   numPaths: Int,
   expiry: Int,
@@ -531,6 +534,7 @@ case class LsmParams(
   override def toString(): String = {
     val strB = new StringBuilder
     strB.append("[\n")
+    strB.append(" payoffFn: "+payoffFn+"\n")
     val formatStr = "% .3f"
     strB.append( {
         if (isPut)
@@ -552,6 +556,7 @@ case class LsmParams(
 }
 
 object lsm {
+  type PayoffFn = (Double, LsmParams) => Double
   import Matrix._
   private val TAG: String = "lsm"
 
@@ -646,18 +651,26 @@ object lsm {
     ) => {
     //Log.d(TAG, "calcCFAtStep-Start" )
     //val exerciseFn = (idx: Int, step: Int) => (params.strike - priceMatrix(idx, step))
-    val exerciseFn = {
+    /*val payoffFn = {
+      if (params.isPut)
+        EqnParsers.parseEval("strike-mcPrice")
+      else 
+        EqnParsers.parseEval("mcPrice-strike")
+    }*/
+    /*val exerciseFn = {
       if (params.isPut)
         (idx: Int, step: Int) => (params.strike - priceMatrix(idx, step))
       else 
         (idx: Int, step: Int) => (priceMatrix(idx, step) - params.strike)
-    }
+    }*/
 
     if (step == params.numSteps) {
       var i = 0
       while (i < params.numPaths) {
-        if (exerciseFn(i, step) > 0)
-          cfMatrix(i, step-1) = exerciseFn(i, step)
+        //if (exerciseFn(i, step) > 0)
+        //  cfMatrix(i, step-1) = exerciseFn(i, step)
+        if (params.payoffFn(priceMatrix(i, step), params) > 0)
+          cfMatrix(i, step-1) = params.payoffFn(priceMatrix(i, step), params)
         i += 1
       }
       if (DEBUG) {
@@ -668,7 +681,8 @@ object lsm {
       var xySize = 0
       var i = 0
       while (i < params.numPaths) {
-        if (exerciseFn(i, step) > 0)
+        //if (exerciseFn(i, step) > 0)
+        if (params.payoffFn(priceMatrix(i, step), params) > 0)
           xySize += 1 
         i += 1
       }
@@ -679,7 +693,8 @@ object lsm {
       i = 0
       var k = 0
       while (i < params.numPaths) {
-        if (exerciseFn(i, step) > 0) {
+        //if (exerciseFn(i, step) > 0) {
+        if (params.payoffFn(priceMatrix(i, step), params) > 0) {
           //x(k, 0) =  priceMatrix(i, step)
           //fnX(k) = fn(x(k, 0))
           fnX(k) = fn(priceMatrix(i, step))
@@ -700,15 +715,18 @@ object lsm {
       i = 0
       var j = 0
       while (i < params.numPaths) {
-        if (exerciseFn(i, step) > 0) {
+        //if (exerciseFn(i, step) > 0) {
+        if (params.payoffFn(priceMatrix(i, step), params) > 0) {
           cfMatrix(i, step-1) = {
-            if (exerciseFn(i, step) >= contMatrix(j, 0) ) {
+            //if (exerciseFn(i, step) >= contMatrix(j, 0) ) {
+            if (params.payoffFn(priceMatrix(i, step), params) >= contMatrix(j, 0) ) {
               k = step
               while (k < cfMatrix.cols) {
                 cfMatrix(i, k) = 0
                 k += 1
               }
-              exerciseFn(i, step)
+              //exerciseFn(i, step)
+              params.payoffFn(priceMatrix(i, step), params)
             } else {
               0.0 // don't exercise now
             }
@@ -811,6 +829,12 @@ object lsm {
 
     var step = initStep
     var newCFMatrix = cfMatrix
+    /*val payoffFn = {
+      if (params.isPut)
+        EqnParsers.parseEval("strike-mcPrice")
+      else 
+        EqnParsers.parseEval("mcPrice-strike")
+    }*/
     var abort = false // 1.01
     while ((step > 0) && !abort) { // 1.01
       if (step%params.uiUpdateInterval == 0) {
@@ -946,6 +970,81 @@ object lsm {
 
   private def prettyPrint(lsmOV: Tuple2[Double, Double], time: Double) {
     println(" "+"% 6.4f".format(lsmOV._1)+"  ( "+"%.4f".format(lsmOV._2)+" ) [ "+"%.3f".format(time/1e9)+"sec ]")
+  }
+
+  /**
+    * Equation Parser
+    *
+    */
+  trait Eqn
+  case class Operator(str: String) extends Eqn { override def toString = str }
+  case class Function(str: String) extends Eqn { override def toString = str }
+  case class Number(value: Double) extends Eqn { override def toString = value.toString }
+  case class Symbol(str: String) extends Eqn { override def toString = str }
+  case class ErrorText(str: String) extends Eqn { override def toString = str }
+  case class FunctionOp(fn: Function, arg: Eqn) extends Eqn { override def toString = "["+fn+"]["+arg+"]" }
+  case class ArithmeticOp(arg1: Eqn, op: Operator, arg2: Eqn) extends Eqn { override def toString = "["+arg1+"]["+op+"]["+arg2+"]" }
+  case class BracketedOp(arg: Eqn) extends Eqn { override def toString = "["+arg+"]" }
+
+  object EqnParsers extends RegexParsers {
+
+    val functions = new collection.mutable.HashMap[Function, (Double) => Double]
+    functions += (
+      Function("exp") -> { (x) => exp(x) } )
+    val operations = new collection.mutable.HashMap[Operator, (Double, Double) => Double]
+    operations += (
+      Operator("+") -> { (x, y) => x + y },
+      Operator("-") -> { (x, y) => x - y },
+      Operator("*") -> { (x, y) => x * y },
+      Operator("/") -> { (x, y) => x / y } )
+
+    //def parseEval(input: String): PayoffFn = (mcPrice: Double, params: LsmParams) => evaluate(parse(input), mcPrice, params)
+    def parseEval(input: String): PayoffFn = {
+      val eqn = parse(input)
+      println("parseEval called with input: "+input)
+      evaluate(eqn)
+    }
+
+    //def evaluate(e: Eqn, mcPrice: Double, params: LsmParams): Double = try {
+    def evaluate(e: Eqn): PayoffFn = try {
+      //val payoffFn: PayoffFn = (idx: Int, step: Int, priceMatrix: Matrix, params: LsmParams) => (params.strike - priceMatrix(idx, step))
+      e match {
+        case Number(v) => { (mcPrice: Double, params: LsmParams) => v }
+        case Symbol(p) => { (mcPrice: Double, params: LsmParams) => {
+          p match { 
+            case "STRIKE" => params.strike
+            case "MCPRICE" => mcPrice
+          }
+        } }
+        case FunctionOp(fn, arg) => { (mcPrice: Double, params: LsmParams) => functions(fn)(evaluate(arg)(mcPrice, params)) }
+        case ArithmeticOp(arg1, op, arg2) => { (mcPrice: Double, params: LsmParams) => operations(op)(evaluate(arg1)(mcPrice, params), evaluate(arg2)(mcPrice, params)) }
+        case BracketedOp(arg) => { (mcPrice: Double, params: LsmParams) => (evaluate(arg)(mcPrice, params)) }
+      }
+    } catch {
+      case ex: Exception => {
+        println("ex: "+ex)
+        (mcPrice: Double, params: LsmParams) => Double.NaN
+      }
+    }
+
+    def function: Parser[Function] = """exp""".r ^^ (f => Function(f))
+    def number: Parser[Number] = """-?\d+(\.\d*)?""".r ^^ (d => Number(d.toDouble))
+    def operator: Parser[Operator] = """[+|\-|*|/]""".r ^^ (s => Operator(s))
+    def symbol: Parser[Symbol] = """(STRIKE|MCPRICE)""".r ^^ (s => Symbol(s))
+
+    def operand: Parser[Eqn] = number | symbol | functionop | bracketedop
+
+    def arithmeticop: Parser[ArithmeticOp] = operand~operator~operand ^^ { case arg1~op~arg2 => ArithmeticOp(arg1, op, arg2) }
+    def functionop: Parser[FunctionOp] = function~"("~operand~")" ^^ { case fn~"("~arg~")" => FunctionOp(fn, arg) }
+    def bracketedop: Parser[Eqn] = "("~(arithmeticop | operand)~")" ^^ { case "("~arg~")" => BracketedOp(arg) }
+
+    //def formula: Parser[Eqn] = functionop | arithmeticop | operator | number | symbol
+    def formula: Parser[Eqn] = arithmeticop | bracketedop | functionop
+
+    def parse(input: String): Eqn = parseAll(formula, input) match {
+      case Success(e, _) => e
+      case f: NoSuccess => ErrorText("NoSuccess: ["+f.msg+"]")
+    }
   }
 
   /**

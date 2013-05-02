@@ -23,7 +23,7 @@
     >
     <ScrollView 
       android:id="@+id/scrollv1"
-      android:layout_span="2"
+      android:layout_span="3"
       android:layout_height="fill_parent"
       android:fastScrollEnabled="false" 
       android:fillViewport="true"
@@ -42,36 +42,32 @@
     </ScrollView>
     <LinearLayout
       android:orientation="vertical"
-      android:layout_span="1"
+      android:layout_span="2"
       android:layout_margin="4dp"
       android:background="@drawable/rndframe"
       >
       <android.opengl.GLSurfaceView
 	android:id="@+id/glSurfaceViewB"
-	android:layout_width="wrap_content"
+	android:layout_width="fill_parent"
 	android:layout_height="fill_parent"
 	android:layout_gravity="center_horizontal"
 	/>
     </LinearLayout>
-    <TableLayout
+    <LinearLayout
+      android:orientation="vertical"
       android:layout_span="1"
-      android:shrinkColumns="*"
-      android:stretchColumns="*"
       >
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/button1" 
-	  android:layout_span="1"
 	  android:layout_margin="2dp"
 	  android:text="@string/bs"
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/button3" 
 	  android:layout_span="1"
@@ -80,10 +76,10 @@
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  ><requestFocus/></Button>
-      </TableRow>
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/buttonParameters" 
 	  android:layout_span="1"
@@ -92,10 +88,10 @@
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/buttonCopy" 
 	  android:layout_span="1"
@@ -104,10 +100,10 @@
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/buttonSettings" 
 	  android:layout_span="1"
@@ -116,10 +112,10 @@
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/buttonClr" 
 	  android:layout_span="1"
@@ -128,10 +124,10 @@
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/buttonCancel" 
 	  android:layout_span="1"
@@ -140,10 +136,10 @@
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<Button
 	  android:id="@+id/buttonHelp" 
 	  android:layout_span="1"
@@ -152,8 +148,10 @@
 	  android:textColor="#000000"
 	  android:textSize="12sp"
 	  android:background="@drawable/rndbutton"
+	  android:layout_width="fill_parent"
+	  android:layout_height="0dp"
+	  android:layout_weight="1"
 	  />
-      </TableRow>
-    </TableLayout>
+    </LinearLayout>
   </TableRow>
 </TableLayout>

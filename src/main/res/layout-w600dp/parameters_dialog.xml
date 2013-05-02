@@ -22,6 +22,22 @@
       <TableRow
 	>
 	<TextView
+	  android:id="@+id/textview_payofffn"
+	  android:text="@string/payofffn"
+	  android:textSize="16sp"
+	  android:layout_span="1"
+	  />
+	<EditText 
+	  android:id="@+id/edittext_payofffn" 
+	  android:inputType="textCapCharacters"
+	  android:text="strike-mcPrice" 
+	  android:textSize="16sp"
+	  android:layout_span="1" 
+	  />
+      </TableRow>
+      <TableRow
+	>
+	<TextView
 	  android:id="@+id/textview2"
 	  android:text="@string/call_put"
 	  android:textSize="16sp"
