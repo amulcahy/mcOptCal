@@ -318,7 +318,8 @@ case object StateData {
 }
 object CacheData {
   private val TAG: String = "CacheData"
-  private val fileName: String = "CacheData.obj"
+  //private val fileName: String = "CacheData.obj"
+  private val fileName: String = "CacheData_3.obj"
 
   def dump(c: CacheData, context: Context) {
     val dataDir = context.getExternalFilesDir(null)
@@ -430,7 +431,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
 
 
   def btn1 = findView(TR.button1).asInstanceOf[Button]
-  def btnParameters = findView(TR.buttonParameters).asInstanceOf[Button]
+  //def btnParameters = findView(TR.buttonParameters).asInstanceOf[Button]
   def btnCopy = findView(TR.buttonCopy).asInstanceOf[Button]
   def btnSettings = findView(TR.buttonSettings).asInstanceOf[Button]
   def btnHelp = findView(TR.buttonHelp).asInstanceOf[Button]
@@ -452,7 +453,8 @@ class MainActivity extends Activity with TypedActivity with Actor {
 
     btn1.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
-          val stateData = StateData.restoreFromPreferences(getApplicationContext)
+          showDialog(ParametersDlg)
+          /*val stateData = StateData.restoreFromPreferences(getApplicationContext)
           val params = LsmParams(
             lsm.EqnParsers.parseEval(stateData.payoffFnStr),
             stateData.payoffFnStr,
@@ -495,15 +497,15 @@ class MainActivity extends Activity with TypedActivity with Actor {
             strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
           }
           cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
-          updateOutputText(cacheData.statusStr)
+          updateOutputText(cacheData.statusStr)*/
         }
       })
 
-    btnParameters.setOnClickListener(new View.OnClickListener() {
+    /*btnParameters.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
           showDialog(ParametersDlg)
         }
-      })
+      })*/
 
     btnCopy.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
@@ -750,7 +752,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
-              textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+              //textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
               val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
               imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
@@ -762,36 +764,38 @@ class MainActivity extends Activity with TypedActivity with Actor {
         alrtDialog.show()
         alrtDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(new OnClickListener() {
             override def onClick(view: View) {
-              val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
+              //val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
               // TODO: isPut is unnecessary
-              val isPut = {
+              /*val isPut = {
                 val id = textEntryView.findViewById(R.id.radiogroup2).asInstanceOf[RadioGroup].getCheckedRadioButtonId
                 ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString == "Put")
-              }
+              }*/
 
               val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
               val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
               val riskFreeRate = textEntryView.findViewById(R.id.edittext3).asInstanceOf[EditText].getText().toString.toDouble
               val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
               val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
-              val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
-              val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+              //val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
+              //val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
 
-              val eqn = lsm.EqnParsers.parse(payoffFnStr)
+              /*val eqn = lsm.EqnParsers.parse(payoffFnStr)
               eqn match {
                 case lsm.ErrorText(e) => {
                   Log.d(TAG, e )
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError("Parse Error!")
                 }
                 case _ => {
-                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)*/
+
+                  val stateData = StateData.restoreFromPreferences(getApplicationContext)
 
                   val newStateData = StateData(
-                    payoffFnStr,
-                    isPut,
-                    numPaths,
+                    stateData.payoffFnStr,
+                    stateData.isPut,
+                    stateData.numPaths,
                     timeToExpiration,
-                    numSteps,
+                    stateData.numSteps,
                     stock,
                     exercisePrice,
                     riskFreeRate,
@@ -808,8 +812,52 @@ class MainActivity extends Activity with TypedActivity with Actor {
                   imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
                   alrtDialog.dismiss()
+
+                  val params = LsmParams(
+                    lsm.EqnParsers.parseEval(stateData.payoffFnStr),
+                    stateData.payoffFnStr,
+                    stateData.numPaths,
+                    stateData.timeToExpiration.toInt,
+                    stateData.numSteps,
+                    stateData.stock,
+                    stateData.exercisePrice,
+                    stateData.riskFreeRate,
+                    stateData.volatility,
+                    stateData.numSamples,
+                    stateData.threshold,
+                    stateData.uiUpdateInterval,
+                    getApplicationContext
+                  )
+
+                val strB = new StringBuilder
+                strB.append("\nStart BS calculation:\n[\n")
+                val formatStr = "% .3f"
+                strB.append(" T:  "+params.expiry+"\n")
+                strB.append(" S0: "+(formatStr.format(params.stock))+"\n")
+                strB.append(" K:  "+(formatStr.format(params.strike))+"\n")
+                strB.append(" R:  "+(formatStr.format(params.rate))+"\n")
+                strB.append(" V:  "+(formatStr.format(params.volatility))+"\n")
+                strB.append("]\n")
+
+                val newData = {
+                  val bsEuroCallVal = dgmath.bsEuropeanCallVal(
+                    params.stock,
+                    params.strike,
+                    params.rate,
+                    params.expiry,
+                    params.volatility )
+                  val bsEuroPutVal = dgmath.bsEuropeanPutVal(
+                    params.stock,
+                    params.strike,
+                    params.rate,
+                    params.expiry,
+                    params.volatility )
+                  strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
                 }
-              }
+                cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
+                updateOutputText(cacheData.statusStr)
+                //}
+              //}
 
             }
           })
@@ -975,22 +1023,22 @@ class MainActivity extends Activity with TypedActivity with Actor {
     val stateData = StateData.restoreFromPreferences(getApplicationContext)
     id match {
       case ParametersDlg => {
-        d.findViewById(R.id.radiogroup2).asInstanceOf[RadioGroup].check({
+        /*d.findViewById(R.id.radiogroup2).asInstanceOf[RadioGroup].check({
             if (stateData.isPut)
               R.id.radioBtnPut
             else
               R.id.radioBtnCall
           })
 
-        d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)
+        d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)*/
 
         d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
         d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
         d.findViewById(R.id.edittext3).asInstanceOf[EditText].setText(stateData.riskFreeRate.toString)
         d.findViewById(R.id.edittext4).asInstanceOf[EditText].setText(stateData.volatility.toString)
         d.findViewById(R.id.edittext5).asInstanceOf[EditText].setText(stateData.timeToExpiration.toString)
-        d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
-        d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
+        //d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
+        //d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
       }
       case LsmParametersDlg => {
         d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)
