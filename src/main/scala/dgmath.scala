@@ -372,7 +372,6 @@ object Matrix {
 case class LsmParams(
   payoffFn: (Double, LsmParams) => Double,
   payoffFnStr: String,
-  isPut: Boolean,
   numPaths: Int,
   expiry: Int,
   numSteps: Int,
@@ -396,20 +395,14 @@ case class LsmParams(
     strB.append("[\n")
     strB.append(" payoffFn: "+payoffFnStr+"\n")
     val formatStr = "% .3f"
-    strB.append( {
-        if (isPut)
-          " Type: Put\n"
-        else
-          " Type: Call\n"
-      })
     strB.append(" numPaths: "+numPaths+"\n")
     strB.append(" numSteps: "+numSteps+"\n")
-    strB.append(" dT: "+(formatStr.format(dT))+"\n")
-    strB.append(" expiry: "+expiry+"\n")
-    strB.append(" stock: "+(formatStr.format(stock))+"\n")
-    strB.append(" strike: "+(formatStr.format(strike))+"\n")
-    strB.append(" rate: "+(formatStr.format(rate))+"\n")
-    strB.append(" volatility: "+(formatStr.format(volatility))+"\n")
+    strB.append(" dT:       "+(formatStr.format(dT))+"\n")
+    strB.append(" T:  "+expiry+"\n")
+    strB.append(" S0: "+(formatStr.format(stock))+"\n")
+    strB.append(" K:  "+(formatStr.format(strike))+"\n")
+    strB.append(" R:  "+(formatStr.format(rate))+"\n")
+    strB.append(" V:  "+(formatStr.format(volatility))+"\n")
     strB.append("]\n")
     strB.result
   }
@@ -509,25 +502,10 @@ object lsm {
     cfMatrix: Matrix
     ) => {
     //Log.d(TAG, "calcCFAtStep-Start" )
-    //val exerciseFn = (idx: Int, step: Int) => (params.strike - priceMatrix(idx, step))
-    /*val payoffFn = {
-      if (params.isPut)
-        EqnParsers.parseEval("strike-mcPrice")
-      else 
-        EqnParsers.parseEval("mcPrice-strike")
-    }*/
-    /*val exerciseFn = {
-      if (params.isPut)
-        (idx: Int, step: Int) => (params.strike - priceMatrix(idx, step))
-      else 
-        (idx: Int, step: Int) => (priceMatrix(idx, step) - params.strike)
-    }*/
 
     if (step == params.numSteps) {
       var i = 0
       while (i < params.numPaths) {
-        //if (exerciseFn(i, step) > 0)
-        //  cfMatrix(i, step-1) = exerciseFn(i, step)
         if (params.payoffFn(priceMatrix(i, step), params) > 0)
           cfMatrix(i, step-1) = params.payoffFn(priceMatrix(i, step), params)
         i += 1
@@ -540,7 +518,6 @@ object lsm {
       var xySize = 0
       var i = 0
       while (i < params.numPaths) {
-        //if (exerciseFn(i, step) > 0)
         if (params.payoffFn(priceMatrix(i, step), params) > 0)
           xySize += 1 
         i += 1
@@ -552,7 +529,6 @@ object lsm {
       i = 0
       var k = 0
       while (i < params.numPaths) {
-        //if (exerciseFn(i, step) > 0) {
         if (params.payoffFn(priceMatrix(i, step), params) > 0) {
           //x(k, 0) =  priceMatrix(i, step)
           //fnX(k) = fn(x(k, 0))
@@ -574,17 +550,14 @@ object lsm {
       i = 0
       var j = 0
       while (i < params.numPaths) {
-        //if (exerciseFn(i, step) > 0) {
         if (params.payoffFn(priceMatrix(i, step), params) > 0) {
           cfMatrix(i, step-1) = {
-            //if (exerciseFn(i, step) >= contMatrix(j, 0) ) {
             if (params.payoffFn(priceMatrix(i, step), params) >= contMatrix(j, 0) ) {
               k = step
               while (k < cfMatrix.cols) {
                 cfMatrix(i, k) = 0
                 k += 1
               }
-              //exerciseFn(i, step)
               params.payoffFn(priceMatrix(i, step), params)
             } else {
               0.0 // don't exercise now
@@ -688,12 +661,6 @@ object lsm {
 
     var step = initStep
     var newCFMatrix = cfMatrix
-    /*val payoffFn = {
-      if (params.isPut)
-        EqnParsers.parseEval("strike-mcPrice")
-      else 
-        EqnParsers.parseEval("mcPrice-strike")
-    }*/
     var abort = false // 1.01
     while ((step > 0) && !abort) { // 1.01
       if (step%params.uiUpdateInterval == 0) {
@@ -870,8 +837,12 @@ object lsm {
         case Number(v) => { (mcPrice: Double, params: LsmParams) => v }
         case Symbol(p) => { (mcPrice: Double, params: LsmParams) => {
           p match { 
-            case "STRIKE" => params.strike
-            case "MCPRICE" => mcPrice
+            case "T" => params.expiry
+            case "S0" => params.stock
+            case "K" => params.strike
+            case "R" => params.rate
+            case "V" => params.volatility
+            case "S" => mcPrice
           }
         } }
         case FunctionOp(fn, arg) => { (mcPrice: Double, params: LsmParams) => functions(fn)(evaluate(arg)(mcPrice, params)) }
@@ -888,7 +859,7 @@ object lsm {
     def function: Parser[Function] = """exp""".r ^^ (f => Function(f))
     def number: Parser[Number] = """-?\d+(\.\d*)?""".r ^^ (d => Number(d.toDouble))
     def operator: Parser[Operator] = """[+|\-|*|/]""".r ^^ (s => Operator(s))
-    def symbol: Parser[Symbol] = """(STRIKE|MCPRICE)""".r ^^ (s => Symbol(s))
+    def symbol: Parser[Symbol] = """(T|S0|S|K|R|V)""".r ^^ (s => Symbol(s))
 
     def operand: Parser[Eqn] = number | symbol | functionop | bracketedop
 
