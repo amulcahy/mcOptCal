@@ -1,3 +1,24 @@
+/*
+Copyright (c) 2013 Anthony Mulcahy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
 package com.dragongate_technologies.mcOptCal
 
 import _root_.android.app.{Activity, Notification, NotificationManager, PendingIntent, Service}
@@ -29,179 +50,43 @@ import scala.util.parsing.combinator._
 import scala.util.Random
 import scala.math._
 
-/*
-* References
-* Wilmott : Paul Wilmott on Quantitative Finance
-*
-*
-*/
-
+/**
+ * The Black-Scholes formulas for a European call/put option on a non-dividend-paying stock.
+ *
+ * @note References : Hull, Options, Futures and Other Derivatives 6th Ed, p295-298
+ *
+ */
 object dgmath {
 
-  val rng: Random = new Random
+  val kFn = (x: Double) => 1.0D/(1.0D+p*x)
+  val p =  0.2316419D
+  val a1 = 0.319381530D
+  val a2 = -0.356563782D
+  val a3 = 1.781477937D
+  val a4 = -1.821255978D
+  val a5 = 1.330274429D
 
-  var spareready: Boolean = false
-  var spare: Double = 0.0D
+  val snd = (x: Double) => { exp(-0.5D*x*x) / sqrt(2.0D*math.Pi) }
 
-  val sqr = (x: Double) => x * x
-
-  val standardNormalDistribution = (x: Double) => {
-    val top: Double = exp(-0.5D*pow(x, 2.0D))
-    val bottom: Double = sqrt(2.0D*Math.Pi)
-    top/bottom
-  }
-
-  val p = 0.2316419D
-  val b1 = 0.319381530D
-  val b2 = -0.356563782D
-  val b3 = 1.781477937D
-  val b4 = -1.821255978D
-  val b5 = 1.330274429D
-
-  val cumulativeDistribution = (x: Double) => {
-    val t = 1.0D/(1.0D+p*abs(x))
-    val t1 = b1*pow(t, 1)
-    val t2 = b2*pow(t, 2)
-    val t3 = b3*pow(t, 3)
-    val t4 = b4*pow(t, 4)
-    val t5 = b5*pow(t, 5)
-    val b = t1+t2+t3+t4+t5
-    val cd = 1.0D-standardNormalDistribution(x)*b
-    if (x < 0)
-      1.0D-cd
+  val cnd = (x: Double) => {
+    if (x >= 0.0D)
+      1.0D - snd(x)*(a1*kFn(x) + a2*pow(kFn(x), 2) + a3*pow(kFn(x), 3) + a4*pow(kFn(x), 4) + a5*pow(kFn(x), 5))
     else
-      cd
+      snd(x)*(a1*kFn(-x) + a2*pow(kFn(-x), 2) + a3*pow(kFn(-x), 3) + a4*pow(kFn(-x), 4) + a5*pow(kFn(-x), 5))
   }
 
-  val bs_d1 = (s: Double, k: Double, r: Double, t: Double, v: Double) => {
-    val top: Double = log(s/k)+(r+pow(v, 2.0D)/2.0D)*t
-    val bottom: Double = v*sqrt(t)
-    top/bottom
+  val d1 = (s0: Double, k: Double, r: Double, t: Double, v: Double) => {
+    (log(s0/k)+(r+pow(v, 2.0D)/2.0D)*t) / (v*sqrt(t))
   }
 
-  val bs_d2 = (s: Double, k: Double, r: Double, t: Double, v: Double) => {
-    bs_d1(s, k, r, t, v)-v*sqrt(t)
+  val d2 = (s0: Double, k: Double, r: Double, t: Double, v: Double) => { d1(s0, k, r, t, v) - v*sqrt(t) }
+
+  val bsEuropeanCallVal = (s0: Double, k: Double, r: Double, t: Double, v: Double) => {
+    s0*cnd(d1(s0, k, r, t, v)) - k * exp(-r * t) * cnd(d2(s0, k, r, t, v))
   }
 
-  val bsEuropeanCallVal = (s: Double, k: Double, r: Double, t: Double, v: Double) => {
-    val cd1: Double = cumulativeDistribution(bs_d1(s, k, r, t, v))
-    val cd2: Double = cumulativeDistribution(bs_d2(s, k, r, t, v))
-    s * cd1 - k * exp(-r * t) * cd2
-  }
-
-  val bsEuropeanPutVal = (s: Double, k: Double, r: Double, t: Double, v: Double) => {
-    val cmd1: Double = cumulativeDistribution(-bs_d1(s, k, r, t, v))
-    val cmd2: Double = cumulativeDistribution(-bs_d2(s, k, r, t, v))
-    k * exp(-r * t) * cmd2 - s * cmd1
-  }
-
-
-  // from Wilmott
-  val optionValue3DUS = (vol: Double, intRate: Double, ptype: Boolean, strike: Double, expiration: Double, etype: Boolean, nas: Int) => {
-
-    val s: Array[Double] = new Array[Double](nas+1) // Asset Array
-    val payoff: Array[Double] = new Array[Double](nas+1) // Payoff Array
-    val dS = 2d*strike/nas // Infinity is twice the strike
-    var dt = 0.9d / (vol*vol) / (nas*nas) // for stability
-    val nts = (expiration/dt).toInt + 1 // number of time steps
-    dt = expiration/nts // to ensure that expiration is an integer number of time steps away
-
-    val v: Array[Array[Double]] = Array.ofDim[Double](nas+1, nts+1)
-    var q = 1
-    // test for call or put
-    if (ptype) {
-      q = -1
-    }
-    for (i <- 0 to nas) {
-      s(i) = i*dS // set up s array
-      v(i)(0) = max(q*(s(i)-strike), 0) // set up payoff
-      payoff(i) = v(i)(0) // store pay off
-    }
-    // time loop
-    for (k <- 1 to nts) {
-      // asset loop, end points treated separately
-      for (i <- 1 until nas) {
-        val delta = (v(i+1)(k-1)-v(i-1)(k-1))/2/dS // central difference
-        val gamma = (v(i+1)(k-1)-2*v(i)(k-1)+v(i-1)(k-1))/dS/dS // central difference
-        val theta = -0.5*(vol*vol)*(s(i)*s(i))*gamma-intRate*s(i)*delta+intRate*v(i)(k-1) // black scholes
-        v(i)(k) = v(i)(k-1)-dt*theta
-      }
-      v(0)(k) = v(0)(k-1)*(1-intRate*dt) // boundary condition at s=0
-      v(nas)(k) = 2*v(nas-1)(k)-v(nas-2)(k) // boundary condition at s=infinity
-      // check for early exercise
-      if (etype) {
-        for (i <- 0 to nas) {
-          v(i)(k) = max(v(i)(k), payoff(i))
-        }
-      }
-    }
-
-    // output array
-    v
-  }
-
-  val bsAmericanCallVal = (s: Double, k: Double, r: Double, t: Double, v: Double) => {
-    val dummyVal = 123.0D
-    s-s+dummyVal
-  }
-
-  val bsBermudanCallVal = (s: Double, k: Double, r: Double, t: Double, v: Double) =>   {
-    val dummyVal = 456.0D
-    s-s+dummyVal
-  }
-  
-  def getGaussian(): Double = {
-    var result: Double = 0.0
-    if (spareready) {
-      spareready = false
-      result = spare
-    } else {
-      var u: Double = 0
-      var v: Double = 0
-      var s: Double = 0
-      do {
-        u = rng.nextDouble*2.0D-1.0D
-        v = rng.nextDouble*2.0D-1.0D
-        s = u*u + v*v
-      } while (s>=1 || s==0.0D)
-      spare = v*sqrt(-2.0D*log(s)/s)
-      spareready = true
-      result = u*sqrt(-2.0D*log(s)/s)
-    }
-    result
-  }
-
-  /*def evaluateBS(s: Double, x: Double, r: Double, sigma: Double, dt: Double): Double = {
-    s*exp((r-sigma*sigma/2.0D)*dt+sigma*(rng.nextGaussian)*sqrt(dt))
-  }*/
-
-  val optEvaluateBS = (s: Double, d1: Double, d2: Double) => {
-    //s*exp((r-sigma*sigma/2.0D)*dt+sigma*(rng.nextGaussian)*sqrt(dt))
-    //val d1: Double = (r-sigma*sigma/2.0D)*dt
-    //val d2: Double = sigma*sqrt(dt))
-    s*exp(d1+rng.nextGaussian*d2)
-  }
-
-  /*def evaluateBSCall(s: Double, x: Double, r: Double, sigma: Double, dt: Double): Double = {
-    max(0.0D, evaluateBS(s, x, r, sigma, dt)-x)
-  }*/
-
-  val optEvaluateBSCall = (s: Double, x: Double, d1: Double, d2: Double) => {
-    //val d1: Double = (r-sigma*sigma/2.0D)*dt
-    //val d2: Double = sigma*sqrt(dt))
-    //max(0.0D, optEvaluateBS(s, d1, d1)-x)
-    max(0.0D, (s*exp(d1+rng.nextGaussian*d2))-x)
-  }
-
-  /*def evaluateBSPut(s: Double, x: Double, r: Double, sigma: Double, dt: Double) = {
-    max(0.0D, x-evaluateBS(s, x, r, sigma, dt))
-  }*/
-
-  def scaleY(y: Double): Float = {
-    var scaledY: Double = y
-    scaledY *= 1000
-    scaledY += 50
-    scaledY.toFloat
+  val bsEuropeanPutVal = (s0: Double, k: Double, r: Double, t: Double, v: Double) => {
+    k * exp(-r * t) * cnd(-d2(s0, k, r, t, v)) - s0 * cnd(-d1(s0, k, r, t, v))
   }
 
 }
@@ -465,37 +350,11 @@ object Matrix {
 }
 
 
-/*class BigMatrix(m: Int, n: Int) extends Matrix(m, n) { //todo make this generic for other types than doubles
-
-  protected val tempFile = {
-    val dataDir = new File("/sdcard/mcTempFiles/") //todo
-    val fileName = this.hashCode.toString+System.nanoTime.toString+".dat"
-    assert(!(new File(dataDir, fileName)).isFile())
-    new File(dataDir, fileName)
-  }
-
-  protected val mMap = new RandomAccessFile(tempFile, "rw").getChannel().map(READ_WRITE, 0, rows*cols*8)
-
-  protected val position = (x: Int, y: Int) => (x * cols + y)*8
-
-  override def apply(i: Int, j: Int): Double = {
-    //mArray(i)(j)
-    mMap.getDouble(position(i, j))
-  }
-
-  override def update(i: Int, j: Int, elem: Double) {
-    //mArray(i)(j) = elem
-    mMap.putDouble(position(i, j), elem)
-  }
-
-}*/
-
-
-
 /**
   * LsmParams is container for the least squares Monte Carlo algorithm parameters.
   *
   * @param payoffFn The the payoff function.
+  * @param payoffFnStr The the payoff function string representation.
   * @param numPaths The number of simulation paths.
   * @param expiry The number of years until expiry.
   * @param numSteps The number of exercise steps per year.
@@ -512,6 +371,7 @@ object Matrix {
   */
 case class LsmParams(
   payoffFn: (Double, LsmParams) => Double,
+  payoffFnStr: String,
   isPut: Boolean,
   numPaths: Int,
   expiry: Int,
@@ -534,7 +394,7 @@ case class LsmParams(
   override def toString(): String = {
     val strB = new StringBuilder
     strB.append("[\n")
-    strB.append(" payoffFn: "+payoffFn+"\n")
+    strB.append(" payoffFn: "+payoffFnStr+"\n")
     val formatStr = "% .3f"
     strB.append( {
         if (isPut)
@@ -576,7 +436,6 @@ object lsm {
     assert( params.numPaths%2 == 0)
     val n = params.numSteps+1
     val pMatrix = new Matrix(params.numPaths, n, params.context)
-    //val pMatrix = new BigMatrix(params.numPaths, n)
     val a = (params.rate -  sqr(params.volatility)*0.5)*params.dT
     val b = params.volatility*sqrt(params.dT)
     var i = 0
@@ -876,7 +735,6 @@ object lsm {
       println("priceMatrix:\n"+priceMatrix)
 
     val initCFMatrix = new Matrix(params.numPaths, params.numSteps, params.context) 
-    //val initCFMatrix = new BigMatrix(params.numPaths, params.numSteps) 
 
     // normalize parameter x to prevent underflows
     val basisFn = (x: Double) => Array (
