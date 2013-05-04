@@ -41,8 +41,6 @@ import java.io._
 
 import scala.actors.Actor._
 import scala.actors._
-import scala.collection.parallel.immutable._
-import scala.collection.parallel.mutable._
 import scala.concurrent.ops._
 import scala.io.Source
 import scala.util.{Marshal, Random}
@@ -57,9 +55,6 @@ class LSMCalcParams(_params: LsmParams, _callerService: Actor) {
 
 case class CalcStartLSM(params: LSMCalcParams)
 case class mcOptCalServiceLSMResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
-//case class MCReport(str: String)
-//case class MCReportComplete(str: String)
-//case class MCReportAbort(str: String)
 case class lsmStatusReport(step: Int, numSteps: Int)
 case class lsmAbortReport
 case object CalcStopLSM
@@ -84,11 +79,11 @@ class Calc extends Actor {
           callerService ! mcOptCalServiceLSMResult(lsmOV, ((endTime-startTime)/1e6).toLong)
           // 1.01 exit()
         }
-        case CalcStopLSM => {
+        /*case CalcStopLSM => {
           // 1.01
           Log.d(TAG, "CalcStopLSM" )
           exit()
-        }
+        }*/
       }
     }
   }
@@ -110,7 +105,6 @@ class mcOptCalService extends Service with Actor {
   var working: Boolean = false
   var calcRunning = false
   var calcStr: String = "idle"
-  //var mainActor: Actor = null
 
   // TODO Messenger Implementation
   var mClients = List[Messenger]()
@@ -201,8 +195,7 @@ class mcOptCalService extends Service with Actor {
           }
           notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
           mNM.notify(1, notification)
-          //mainActor ! MCReportComplete(calcStr)
-          Log.d(TAG, "mBinder.mListener.reportComplete("+calcStr )
+          Log.d(TAG, "reportComplete("+calcStr )
           mBinder.mListener.reportComplete(calcStr)
           calcRunning = false
         }
@@ -215,8 +208,7 @@ class mcOptCalService extends Service with Actor {
           progressVal = 100 - step*100/numSteps
           notification.setLatestEventInfo(context, contentTitle, "recurseCF step="+step, contentIntent)
           mNM.notify(1, notification)
-          //mainActor ! MCReport("recurseCF step="+step)
-          Log.d(TAG, "mBinder.mListener.report(recurseCF step="+step )
+          Log.d(TAG, "report(recurseCF step="+step )
           mBinder.mListener.report("recurseCF step="+step)
         }
         case lsmAbortReport => {
@@ -229,13 +221,13 @@ class mcOptCalService extends Service with Actor {
           statusStr = calcStr
           calcComplete = true
           progressState = false
-          //progressVal = 100
           notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
           mNM.notify(1, notification)
-          //mainActor ! MCReportComplete(calcStr)
-          Log.d(TAG, "mBinder.mListener.reportComplete("+calcStr )
+          Log.d(TAG, "reportComplete("+calcStr )
           mBinder.mListener.reportComplete(calcStr)
           calcRunning = false
+          // 1.02
+          exit()
         }
       }
     }
@@ -267,7 +259,7 @@ class mcOptCalService extends Service with Actor {
   def stopLSM = {
     Log.d(TAG, "mcOptCalService.stopLSM" )
     if (calcRunning) {
-      //Log.d(TAG, "stopCalc: if {" )
+      Log.d(TAG, "stopCalc: calcRunning" )
       working = false
       calcRunning = false
       calc ! CalcStopLSM
@@ -393,7 +385,6 @@ class MainActivity extends Activity with TypedActivity {
   private val CopyDlg = 4
   private val LsmParametersDlg = 5
 
-  //val mainActor = this
   var intent: Intent = null
   var calc: Calc = null
   var cacheData: CacheData = _
@@ -409,10 +400,9 @@ class MainActivity extends Activity with TypedActivity {
     def onServiceConnected(className: ComponentName, service: IBinder) {
       mService = service.asInstanceOf[mcOptCalService#mcOptCalServiceBinder].getService
       val binder = service.asInstanceOf[mcOptCalService#mcOptCalServiceBinder]
-  //class mcOptCalServiceBinder extends Binder {
       mBound = true
-      //mService.mainActor = mainActor
       binder.setListener(new BoundServiceListener() {
+
           def report(str: String) {
             MainActivity.this.runOnUiThread(new Runnable() {
                 override def run() {
@@ -428,32 +418,6 @@ class MainActivity extends Activity with TypedActivity {
                 }
               })
           }
-
-          /*def reportAbort(str: String) {
-            MainActivity.this.runOnUiThread(new Runnable() {
-                override def run() {
-                  if (mBound) {
-                    if (mService.calcComplete) {
-                      Log.e(TAG, "mService.calcComplete")
-                      cleanTempFiles //todo
-                      cacheData = new CacheData(mService.priceAry, cacheData.statusStr+"\n"+mService.statusStr)
-                      updateOutputText(cacheData.statusStr)
-                      CacheData.dump(cacheData, getApplicationContext)
-                      mRenderer.init4(cacheData.samplePriceArray)
-                      mGLSurfaceViewB.requestRender()
-                      mService.calcComplete = false
-                    }
-                    if (mService.progressState) {
-                      progress1.setVisibility(View.VISIBLE)
-                      progress1.setProgress(mService.progressVal)
-                    } else {
-                      progress1.setVisibility(View.INVISIBLE)
-                    }
-
-                  }
-                }
-              })
-          }*/
 
           def reportComplete(str: String) {
             MainActivity.this.runOnUiThread(new Runnable() {
@@ -524,8 +488,7 @@ class MainActivity extends Activity with TypedActivity {
   }
 
 
-  def btn1 = findView(TR.button1).asInstanceOf[Button]
-  //def btnParameters = findView(TR.buttonParameters).asInstanceOf[Button]
+  def btnBS = findView(TR.button1).asInstanceOf[Button]
   def btnCopy = findView(TR.buttonCopy).asInstanceOf[Button]
   def btnSettings = findView(TR.buttonSettings).asInstanceOf[Button]
   def btnHelp = findView(TR.buttonHelp).asInstanceOf[Button]
@@ -545,61 +508,7 @@ class MainActivity extends Activity with TypedActivity {
 
     progress1.setVisibility(View.INVISIBLE)
 
-    btn1.setOnClickListener(new View.OnClickListener() {
-        def onClick(v : View) {
-          showDialog(ParametersDlg)
-          /*val stateData = StateData.restoreFromPreferences(getApplicationContext)
-          val params = LsmParams(
-            lsm.EqnParsers.parseEval(stateData.payoffFnStr),
-            stateData.payoffFnStr,
-            stateData.numPaths,
-            stateData.timeToExpiration.toInt,
-            stateData.numSteps,
-            stateData.stock,
-            stateData.exercisePrice,
-            stateData.riskFreeRate,
-            stateData.volatility,
-            stateData.numSamples,
-            stateData.threshold,
-            stateData.uiUpdateInterval,
-            getApplicationContext
-            )
-
-          val strB = new StringBuilder
-          strB.append("\nStart BS calculation:\n[\n")
-          val formatStr = "% .3f"
-          strB.append(" T:  "+params.expiry+"\n")
-          strB.append(" S0: "+(formatStr.format(params.stock))+"\n")
-          strB.append(" K:  "+(formatStr.format(params.strike))+"\n")
-          strB.append(" R:  "+(formatStr.format(params.rate))+"\n")
-          strB.append(" V:  "+(formatStr.format(params.volatility))+"\n")
-          strB.append("]\n")
-
-          val newData = {
-            val bsEuroCallVal = dgmath.bsEuropeanCallVal(
-              params.stock,
-              params.strike,
-              params.rate,
-              params.expiry,
-              params.volatility )
-            val bsEuroPutVal = dgmath.bsEuropeanPutVal(
-              params.stock,
-              params.strike,
-              params.rate,
-              params.expiry,
-              params.volatility )
-            strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
-          }
-          cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
-          updateOutputText(cacheData.statusStr)*/
-        }
-      })
-
-    /*btnParameters.setOnClickListener(new View.OnClickListener() {
-        def onClick(v : View) {
-          showDialog(ParametersDlg)
-        }
-      })*/
+    btnBS.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(ParametersDlg) } })
 
     btnCopy.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
@@ -611,17 +520,9 @@ class MainActivity extends Activity with TypedActivity {
         }
       })
 
-    btnSettings.setOnClickListener(new View.OnClickListener() {
-        def onClick(v : View) {
-          showDialog(SettingsDlg)
-        }
-      })
+    btnSettings.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(SettingsDlg) } })
 
-    btnHelp.setOnClickListener(new View.OnClickListener() {
-        def onClick(v : View) {
-          showDialog(HelpDlg)
-        }
-      })
+    btnHelp.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(HelpDlg) } })
 
     btnClr.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
@@ -638,21 +539,7 @@ class MainActivity extends Activity with TypedActivity {
         }
       })
 
-    btnLSM.setOnClickListener(new View.OnClickListener() {
-        def onClick(v : View) {
-          showDialog(LsmParametersDlg)
-
-          /*cleanTempFiles //todo
-          // 1.01 start service only when running LSM
-          Log.d(TAG, "Starting mcOptCal Service" )
-          intent = new Intent(MainActivity.this, classOf[mcOptCalService])
-
-          Log.d(TAG, "Starting mcOptCal Service" )
-          startService(intent)
-          bindService(intent, mConnection, Context.BIND_AUTO_CREATE)*/
-
-        }
-      })
+    btnLSM.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(LsmParametersDlg) } })
 
 
     PreferenceManager.getDefaultSharedPreferences(this).edit().putString("mBound", "false").commit()
@@ -729,7 +616,6 @@ class MainActivity extends Activity with TypedActivity {
     Log.e(TAG, "loadedCacheData")
     mRenderer.init4(cacheData.samplePriceArray)
     //updateOutputText(cacheData.statusStr)
-    //mainActor.start //required
   }
 
   override def onStop() {
@@ -775,100 +661,79 @@ class MainActivity extends Activity with TypedActivity {
         alrtDialog.show()
         alrtDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(new OnClickListener() {
             override def onClick(view: View) {
-              //val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
-              // TODO: isPut is unnecessary
-              /*val isPut = {
-                val id = textEntryView.findViewById(R.id.radiogroup2).asInstanceOf[RadioGroup].getCheckedRadioButtonId
-                ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString == "Put")
-              }*/
-
               val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
               val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
               val riskFreeRate = textEntryView.findViewById(R.id.edittext3).asInstanceOf[EditText].getText().toString.toDouble
               val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
               val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
-              //val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
-              //val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
 
-              /*val eqn = lsm.EqnParsers.parse(payoffFnStr)
-              eqn match {
-                case lsm.ErrorText(e) => {
-                  Log.d(TAG, e )
-                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError("Parse Error!")
-                }
-                case _ => {
-                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)*/
+              val stateData = StateData.restoreFromPreferences(getApplicationContext)
 
-                  val stateData = StateData.restoreFromPreferences(getApplicationContext)
+              val newStateData = StateData(
+                stateData.payoffFnStr,
+                stateData.isPut,
+                stateData.numPaths,
+                timeToExpiration,
+                stateData.numSteps,
+                stock,
+                exercisePrice,
+                riskFreeRate,
+                volatility,
+                stateData.numSamples,
+                stateData.threshold,
+                stateData.uiUpdateInterval )
+              newStateData.saveToSharedPreferences(getApplicationContext)
 
-                  val newStateData = StateData(
-                    stateData.payoffFnStr,
-                    stateData.isPut,
-                    stateData.numPaths,
-                    timeToExpiration,
-                    stateData.numSteps,
-                    stock,
-                    exercisePrice,
-                    riskFreeRate,
-                    volatility,
-                    stateData.numSamples,
-                    stateData.threshold,
-                    stateData.uiUpdateInterval )
-                  newStateData.saveToSharedPreferences(getApplicationContext)
+              val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+              prefs.edit().putString("stateDataSaved", "true").commit()
 
-                  val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                  prefs.edit().putString("stateDataSaved", "true").commit()
+              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
-                  val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-                  imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+              alrtDialog.dismiss()
 
-                  alrtDialog.dismiss()
+              val params = LsmParams(
+                lsm.EqnParsers.parseEval(stateData.payoffFnStr),
+                stateData.payoffFnStr,
+                stateData.numPaths,
+                stateData.timeToExpiration.toInt,
+                stateData.numSteps,
+                stateData.stock,
+                stateData.exercisePrice,
+                stateData.riskFreeRate,
+                stateData.volatility,
+                stateData.numSamples,
+                stateData.threshold,
+                stateData.uiUpdateInterval,
+                getApplicationContext )
 
-                  val params = LsmParams(
-                    lsm.EqnParsers.parseEval(stateData.payoffFnStr),
-                    stateData.payoffFnStr,
-                    stateData.numPaths,
-                    stateData.timeToExpiration.toInt,
-                    stateData.numSteps,
-                    stateData.stock,
-                    stateData.exercisePrice,
-                    stateData.riskFreeRate,
-                    stateData.volatility,
-                    stateData.numSamples,
-                    stateData.threshold,
-                    stateData.uiUpdateInterval,
-                    getApplicationContext
-                  )
+              val strB = new StringBuilder
+              strB.append("\nStart BS calculation:\n[\n")
+              val formatStr = "% .3f"
+              strB.append(" T:  "+params.expiry+"\n")
+              strB.append(" S0: "+(formatStr.format(params.stock))+"\n")
+              strB.append(" K:  "+(formatStr.format(params.strike))+"\n")
+              strB.append(" R:  "+(formatStr.format(params.rate))+"\n")
+              strB.append(" V:  "+(formatStr.format(params.volatility))+"\n")
+              strB.append("]\n")
 
-                val strB = new StringBuilder
-                strB.append("\nStart BS calculation:\n[\n")
-                val formatStr = "% .3f"
-                strB.append(" T:  "+params.expiry+"\n")
-                strB.append(" S0: "+(formatStr.format(params.stock))+"\n")
-                strB.append(" K:  "+(formatStr.format(params.strike))+"\n")
-                strB.append(" R:  "+(formatStr.format(params.rate))+"\n")
-                strB.append(" V:  "+(formatStr.format(params.volatility))+"\n")
-                strB.append("]\n")
-
-                val newData = {
-                  val bsEuroCallVal = dgmath.bsEuropeanCallVal(
-                    params.stock,
-                    params.strike,
-                    params.rate,
-                    params.expiry,
-                    params.volatility )
-                  val bsEuroPutVal = dgmath.bsEuropeanPutVal(
-                    params.stock,
-                    params.strike,
-                    params.rate,
-                    params.expiry,
-                    params.volatility )
-                  strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
-                }
-                cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
-                updateOutputText(cacheData.statusStr)
-                //}
-              //}
+              val newData = {
+                val bsEuroCallVal = dgmath.bsEuropeanCallVal(
+                  params.stock,
+                  params.strike,
+                  params.rate,
+                  params.expiry,
+                  params.volatility )
+                val bsEuroPutVal = dgmath.bsEuropeanPutVal(
+                  params.stock,
+                  params.strike,
+                  params.rate,
+                  params.expiry,
+                  params.volatility )
+                strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
+              }
+              cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
+              updateOutputText(cacheData.statusStr)
 
             }
           })
@@ -1034,26 +899,14 @@ class MainActivity extends Activity with TypedActivity {
     val stateData = StateData.restoreFromPreferences(getApplicationContext)
     id match {
       case ParametersDlg => {
-        /*d.findViewById(R.id.radiogroup2).asInstanceOf[RadioGroup].check({
-            if (stateData.isPut)
-              R.id.radioBtnPut
-            else
-              R.id.radioBtnCall
-          })
-
-        d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)*/
-
         d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
         d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
         d.findViewById(R.id.edittext3).asInstanceOf[EditText].setText(stateData.riskFreeRate.toString)
         d.findViewById(R.id.edittext4).asInstanceOf[EditText].setText(stateData.volatility.toString)
         d.findViewById(R.id.edittext5).asInstanceOf[EditText].setText(stateData.timeToExpiration.toString)
-        //d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
-        //d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
       }
       case LsmParametersDlg => {
         d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)
-
         d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
         d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
         d.findViewById(R.id.edittext3).asInstanceOf[EditText].setText(stateData.riskFreeRate.toString)

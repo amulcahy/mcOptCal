@@ -673,6 +673,9 @@ object lsm {
           case CalcStopLSM => {
             Log.d(TAG, "CalcStopLSM" )
             abort = true // 1.01
+      // 1.02
+      callerService ! lsmAbortReport
+      exit()
           }
         }
       }
