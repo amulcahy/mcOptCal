@@ -58,8 +58,8 @@ class LSMCalcParams(_params: LsmParams, _callerService: Actor) {
 case class CalcStartLSM(params: LSMCalcParams)
 case class mcOptCalServiceLSMResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class MCReport(str: String)
-case class MCReportComplete(str: String)
-case class MCReportAbort(str: String)
+//case class MCReportComplete(str: String)
+//case class MCReportAbort(str: String)
 case class lsmStatusReport(step: Int, numSteps: Int)
 case class lsmAbortReport
 case object CalcStopLSM
@@ -96,6 +96,7 @@ class Calc extends Actor {
 
 trait BoundServiceListener {
   def report(str: String)
+  def reportComplete(str: String)
 }
 
 class mcOptCalService extends Service with Actor {
@@ -109,7 +110,7 @@ class mcOptCalService extends Service with Actor {
   var working: Boolean = false
   var calcRunning = false
   var calcStr: String = "idle"
-  var mainActor: Actor = null
+  //var mainActor: Actor = null
 
   // TODO Messenger Implementation
   var mClients = List[Messenger]()
@@ -200,7 +201,9 @@ class mcOptCalService extends Service with Actor {
           }
           notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
           mNM.notify(1, notification)
-          mainActor ! MCReportComplete(calcStr)
+          //mainActor ! MCReportComplete(calcStr)
+          Log.d(TAG, "mBinder.mListener.reportComplete("+calcStr )
+          mBinder.mListener.reportComplete(calcStr)
           calcRunning = false
         }
         case lsmStatusReport(step, numSteps) => {
@@ -229,7 +232,9 @@ class mcOptCalService extends Service with Actor {
           //progressVal = 100
           notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
           mNM.notify(1, notification)
-          mainActor ! MCReportComplete(calcStr)
+          //mainActor ! MCReportComplete(calcStr)
+          Log.d(TAG, "mBinder.mListener.reportComplete("+calcStr )
+          mBinder.mListener.reportComplete(calcStr)
           calcRunning = false
         }
       }
@@ -380,7 +385,7 @@ object CacheData {
 }
 
 
-class MainActivity extends Activity with TypedActivity with Actor {
+class MainActivity extends Activity with TypedActivity {
   private val TAG: String = "MainActivity"
   private val ParametersDlg = 1
   private val SettingsDlg = 2
@@ -388,7 +393,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
   private val CopyDlg = 4
   private val LsmParametersDlg = 5
 
-  val mainActor = this
+  //val mainActor = this
   var intent: Intent = null
   var calc: Calc = null
   var cacheData: CacheData = _
@@ -406,7 +411,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
       val binder = service.asInstanceOf[mcOptCalService#mcOptCalServiceBinder]
   //class mcOptCalServiceBinder extends Binder {
       mBound = true
-      mService.mainActor = mainActor
+      //mService.mainActor = mainActor
       binder.setListener(new BoundServiceListener() {
           def report(str: String) {
             MainActivity.this.runOnUiThread(new Runnable() {
@@ -422,8 +427,72 @@ class MainActivity extends Activity with TypedActivity with Actor {
                   }
                 }
               })
-            }
-          })
+          }
+
+          def reportAbort(str: String) {
+            MainActivity.this.runOnUiThread(new Runnable() {
+                override def run() {
+                  if (mBound) {
+                    if (mService.calcComplete) {
+                      Log.e(TAG, "mService.calcComplete")
+                      cleanTempFiles //todo
+                      cacheData = new CacheData(mService.priceAry, cacheData.statusStr+"\n"+mService.statusStr)
+                      updateOutputText(cacheData.statusStr)
+                      CacheData.dump(cacheData, getApplicationContext)
+                      mRenderer.init4(cacheData.samplePriceArray)
+                      mGLSurfaceViewB.requestRender()
+                      mService.calcComplete = false
+                    }
+                    if (mService.progressState) {
+                      progress1.setVisibility(View.VISIBLE)
+                      progress1.setProgress(mService.progressVal)
+                    } else {
+                      progress1.setVisibility(View.INVISIBLE)
+                    }
+
+                  }
+                }
+              })
+          }
+
+          def reportComplete(str: String) {
+            MainActivity.this.runOnUiThread(new Runnable() {
+                override def run() {
+                  // 1.01 if (mBound) {
+                    if (mService.calcComplete) {
+                      Log.e(TAG, "mService.calcComplete")
+                      cleanTempFiles //todo
+                      cacheData = new CacheData(mService.priceAry, cacheData.statusStr+"\n"+mService.statusStr)
+                      CacheData.dump(cacheData, getApplicationContext)
+                      mRenderer.init4(cacheData.samplePriceArray)
+                      mGLSurfaceViewB.requestRender()
+                      updateOutputText(cacheData.statusStr)
+                      mService.calcComplete = false
+                    }
+                    /* 1.01 if (mService.progressState) {
+                      progress1.setVisibility(View.VISIBLE)
+                      progress1.setProgress(mService.progressVal)
+                    } else {*/
+                    progress1.setVisibility(View.INVISIBLE)
+                    // 1.01 }
+
+                    //}
+                  }
+              })
+              // 1.01
+              Log.d(TAG, "Stopping mcOptCal Service" )
+              if(mBound) {
+                Log.d(TAG, "stopping LSM" )
+                mService.stopLSM
+                Log.d(TAG, "unbinding service" )
+                unbindService(mConnection)
+                Log.d(TAG, "set mBound to false" )
+                mBound = false
+              }
+              Log.d(TAG, "stopService" )
+              stopService(intent)
+          }
+        })
 
       // 1.01 start service only when running LSM
       if(mBound) {
@@ -631,10 +700,10 @@ class MainActivity extends Activity with TypedActivity with Actor {
     textview9mcresult.setText(text+"\n")
   }
 
-  def act() {
-    loop {
-      react {
-        case MCReportComplete(str) => {
+  //def act() {
+    //loop {
+      //react {
+        /*case MCReportComplete(str) => {
           Log.d(TAG, "MCReportComplete: "+str )
           this.runOnUiThread(new Runnable() {
               override def run() {
@@ -649,12 +718,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
                     updateOutputText(cacheData.statusStr)
                     mService.calcComplete = false
                   }
-                  /* 1.01 if (mService.progressState) {
-                    progress1.setVisibility(View.VISIBLE)
-                    progress1.setProgress(mService.progressVal)
-                  } else {*/
                     progress1.setVisibility(View.INVISIBLE)
-                  // 1.01 }
 
                 //}
               }
@@ -672,8 +736,8 @@ class MainActivity extends Activity with TypedActivity with Actor {
           }
           Log.d(TAG, "stopService" )
           stopService(intent)
-        }
-        case MCReportAbort(str) => {
+        }*/
+        /*case MCReportAbort(str) => {
           Log.d(TAG, "MCReportAbort: "+str )
           this.runOnUiThread(new Runnable() {
               override def run() {
@@ -698,7 +762,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
                 }
               }
             })
-        }
+        }*/
         /*case MCReport(str) => {
           Log.d(TAG, "MCReport: "+str )
           this.runOnUiThread(new Runnable() {
@@ -714,10 +778,10 @@ class MainActivity extends Activity with TypedActivity with Actor {
               }
             })
         }*/
-        case _ => {}
-      }
-    }
-  }
+        //case _ => {}
+      //}
+    //}
+  //}
 
   protected override def onPause() {
     super.onPause
@@ -755,7 +819,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
     Log.e(TAG, "loadedCacheData")
     mRenderer.init4(cacheData.samplePriceArray)
     //updateOutputText(cacheData.statusStr)
-    mainActor.start //required
+    //mainActor.start //required
   }
 
   override def onStop() {
