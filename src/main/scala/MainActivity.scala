@@ -94,6 +94,10 @@ class Calc extends Actor {
   }
 }
 
+trait BoundServiceListener {
+  def report(str: String)
+}
+
 class mcOptCalService extends Service with Actor {
   private val TAG: String = "mcOptCalService"
 
@@ -107,6 +111,9 @@ class mcOptCalService extends Service with Actor {
   var calcStr: String = "idle"
   var mainActor: Actor = null
 
+  // TODO Messenger Implementation
+  var mClients = List[Messenger]()
+
   var statusStr = ""
   var calcComplete = false
   var progressState = false
@@ -114,7 +121,11 @@ class mcOptCalService extends Service with Actor {
   var priceAry: Array[Array[Double]] = Array.fill(10, 10)(1.0d) //todo
 
   class mcOptCalServiceBinder extends Binder {
+    var mListener: BoundServiceListener = null
+
     def getService: mcOptCalService = mcOptCalService.this
+
+    def setListener(listener: BoundServiceListener) { mListener = listener }
   }
 
   private final val mBinder = new mcOptCalServiceBinder()
@@ -201,7 +212,9 @@ class mcOptCalService extends Service with Actor {
           progressVal = 100 - step*100/numSteps
           notification.setLatestEventInfo(context, contentTitle, "recurseCF step="+step, contentIntent)
           mNM.notify(1, notification)
-          mainActor ! MCReport("recurseCF step="+step)
+          //mainActor ! MCReport("recurseCF step="+step)
+          Log.d(TAG, "mBinder.mListener.report(recurseCF step="+step )
+          mBinder.mListener.report("recurseCF step="+step)
         }
         case lsmAbortReport => {
           val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
@@ -390,8 +403,27 @@ class MainActivity extends Activity with TypedActivity with Actor {
 
     def onServiceConnected(className: ComponentName, service: IBinder) {
       mService = service.asInstanceOf[mcOptCalService#mcOptCalServiceBinder].getService
+      val binder = service.asInstanceOf[mcOptCalService#mcOptCalServiceBinder]
+  //class mcOptCalServiceBinder extends Binder {
       mBound = true
       mService.mainActor = mainActor
+      binder.setListener(new BoundServiceListener() {
+          def report(str: String) {
+            MainActivity.this.runOnUiThread(new Runnable() {
+                override def run() {
+                  Log.d(TAG, "MCReport: "+str )
+                  if (mBound) {
+                    if (mService.progressState) {
+                      progress1.setVisibility(View.VISIBLE)
+                      progress1.setProgress(mService.progressVal)
+                    } else {
+                      progress1.setVisibility(View.INVISIBLE)
+                    }
+                  }
+                }
+              })
+            }
+          })
 
       // 1.01 start service only when running LSM
       if(mBound) {
@@ -667,7 +699,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
               }
             })
         }
-        case MCReport(str) => {
+        /*case MCReport(str) => {
           Log.d(TAG, "MCReport: "+str )
           this.runOnUiThread(new Runnable() {
               override def run() {
@@ -681,7 +713,7 @@ class MainActivity extends Activity with TypedActivity with Actor {
                 }
               }
             })
-        }
+        }*/
         case _ => {}
       }
     }
@@ -689,9 +721,14 @@ class MainActivity extends Activity with TypedActivity with Actor {
 
   protected override def onPause() {
     super.onPause
+    Log.e(TAG, "onResume")
     CacheData.dump(cacheData, getApplicationContext)
     val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
     prefs.edit().putString("mBound", mBound.toString).commit()
+    if(mBound) {
+      unbindService(mConnection)
+      mBound = false
+    }
     mGLSurfaceViewB.onPause
   }
 
