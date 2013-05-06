@@ -77,13 +77,7 @@ class Calc extends Actor {
           val endTime = System.nanoTime
           //Debug.stopMethodTracing()
           callerService ! mcOptCalServiceLSMResult(lsmOV, ((endTime-startTime)/1e6).toLong)
-          // 1.01 exit()
         }
-        /*case CalcStopLSM => {
-          // 1.01
-          Log.d(TAG, "CalcStopLSM" )
-          exit()
-        }*/
       }
     }
   }
@@ -222,8 +216,10 @@ class mcOptCalService extends Service with Actor {
           calcComplete = true
           progressState = false
           notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
-          mNM.notify(1, notification)
-          Log.d(TAG, "reportComplete("+calcStr )
+          //mNM.notify(1, notification)
+          // 1.02
+          mNM.cancel(1)
+          Log.d(TAG, calcStr )
           mBinder.mListener.reportComplete(calcStr)
           calcRunning = false
           // 1.02
@@ -328,7 +324,7 @@ case object StateData {
 }
 object CacheData {
   private val TAG: String = "CacheData"
-  //private val fileName: String = "CacheData.obj"
+  private val oldFileName: String = "CacheData.obj"
   private val fileName: String = "CacheData_3.obj"
 
   def dump(c: CacheData, context: Context) {
@@ -349,6 +345,11 @@ object CacheData {
     Log.e(TAG, "load")
     Log.e(TAG, "dataDir = "+dataDir)
     ensureCacheDirExists()
+    if ((new File(dataDir, oldFileName)).isFile()) {
+      // clean up previous version after version upgrade
+      Log.e(TAG, "deleting oldFileName: "+dataDir.toString+oldFileName)
+      (new File(dataDir, oldFileName)).delete()
+    }
     if ((new File(dataDir, fileName)).isFile()) {
       Log.e(TAG, "load-1")
       val file = new File (dataDir, fileName)
@@ -558,6 +559,10 @@ class MainActivity extends Activity with TypedActivity {
         }
       })
   }
+
+  override def onPostCreate(bundle: Bundle) {
+    super.onPostCreate(bundle)
+  }
   
   def datFilter(fn :String) = fn.toLowerCase.endsWith("dat")
 
@@ -645,6 +650,81 @@ class MainActivity extends Activity with TypedActivity {
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
+              val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
+              val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
+              val riskFreeRate = textEntryView.findViewById(R.id.edittext3).asInstanceOf[EditText].getText().toString.toDouble
+              val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
+              val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
+
+              val stateData = StateData.restoreFromPreferences(getApplicationContext)
+
+              val newStateData = StateData(
+                stateData.payoffFnStr,
+                stateData.isPut,
+                stateData.numPaths,
+                timeToExpiration,
+                stateData.numSteps,
+                stock,
+                exercisePrice,
+                riskFreeRate,
+                volatility,
+                stateData.numSamples,
+                stateData.threshold,
+                stateData.uiUpdateInterval )
+              newStateData.saveToSharedPreferences(getApplicationContext)
+
+              val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+              prefs.edit().putString("stateDataSaved", "true").commit()
+
+              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+              dialog.dismiss()
+
+              val params = LsmParams(
+                lsm.EqnParsers.parseEval(stateData.payoffFnStr),
+                stateData.payoffFnStr,
+                stateData.numPaths,
+                stateData.timeToExpiration.toInt,
+                stateData.numSteps,
+                stateData.stock,
+                stateData.exercisePrice,
+                stateData.riskFreeRate,
+                stateData.volatility,
+                stateData.numSamples,
+                stateData.threshold,
+                stateData.uiUpdateInterval,
+                getApplicationContext )
+
+              val strB = new StringBuilder
+              strB.append("\nStart BS calculation:\n[\n")
+              val formatStr = "% .3f"
+
+              strB.append(" T:\t"++(formatStr.format(params.expiry.toDouble))+"\n")
+              strB.append(" S0:\t"+(formatStr.format(params.stock))+"\n")
+              strB.append(" K:\t"+(formatStr.format(params.strike))+"\n")
+              strB.append(" R:\t"+(formatStr.format(params.rate))+"\n")
+              strB.append(" V:\t"+(formatStr.format(params.volatility))+"\n")
+              strB.append("]\n")
+
+              val newData = {
+                val bsEuroCallVal = dgmath.bsEuropeanCallVal(
+                  params.stock,
+                  params.strike,
+                  params.rate,
+                  params.expiry,
+                  params.volatility )
+                val bsEuroPutVal = dgmath.bsEuropeanPutVal(
+                  params.stock,
+                  params.strike,
+                  params.rate,
+                  params.expiry,
+                  params.volatility )
+                strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
+              }
+              cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
+              updateOutputText(cacheData.statusStr)
+
             }
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
@@ -658,8 +738,8 @@ class MainActivity extends Activity with TypedActivity {
             }
           })
         .create()
-        alrtDialog.show()
-        alrtDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(new OnClickListener() {
+        //alrtDialog.show()
+        /*alrtDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(new OnClickListener() {
             override def onClick(view: View) {
               val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
               val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
@@ -736,7 +816,7 @@ class MainActivity extends Activity with TypedActivity {
               updateOutputText(cacheData.statusStr)
 
             }
-          })
+          })*/
         alrtDialog
       }
       case LsmParametersDlg => {
@@ -747,22 +827,6 @@ class MainActivity extends Activity with TypedActivity {
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
-            }
-          })
-        .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
-
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.cancel()
-            }
-          })
-        .create()
-        lsmParamsDialog.show()
-        lsmParamsDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(new OnClickListener() {
-            override def onClick(view: View) {
               val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
               val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
               val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
@@ -803,7 +867,7 @@ class MainActivity extends Activity with TypedActivity {
                   val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
                   imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
-                  lsmParamsDialog.dismiss()
+                  dialog.dismiss()
 
                   cleanTempFiles //todo
                   // 1.01 start service only when running LSM
@@ -815,9 +879,81 @@ class MainActivity extends Activity with TypedActivity {
                   bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
                 }
               }
-
             }
           })
+        .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            override def onClick(dialog: DialogInterface, id: Int) {
+              textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+
+              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+              dialog.cancel()
+            }
+          })
+        .create()
+        lsmParamsDialog.setOnShowListener(new DialogInterface.OnShowListener() {
+            override def onShow(dialog: DialogInterface) {
+              val b = lsmParamsDialog.getButton(DialogInterface.BUTTON_POSITIVE)
+              b.setOnClickListener(new View.OnClickListener() {
+                  override def onClick(view: View) {
+                    val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
+                    val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
+                    val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
+                    val riskFreeRate = textEntryView.findViewById(R.id.edittext3).asInstanceOf[EditText].getText().toString.toDouble
+                    val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
+                    val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
+                    val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
+                    val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+
+                    val eqn = lsm.EqnParsers.parse(payoffFnStr)
+                    eqn match {
+                      case lsm.ErrorText(e) => {
+                        Log.d(TAG, e )
+                        textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError("Parse Error!")
+                      }
+                      case _ => {
+                        textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+
+                        //TODO
+                        val newStateData = StateData(
+                          payoffFnStr,
+                          true,
+                          numPaths,
+                          timeToExpiration,
+                          numSteps,
+                          stock,
+                          exercisePrice,
+                          riskFreeRate,
+                          volatility,
+                          stateData.numSamples,
+                          stateData.threshold,
+                          stateData.uiUpdateInterval )
+                        newStateData.saveToSharedPreferences(getApplicationContext)
+
+                        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                        prefs.edit().putString("stateDataSaved", "true").commit()
+
+                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+                        imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+                        lsmParamsDialog.dismiss()
+
+                        cleanTempFiles //todo
+                        // 1.01 start service only when running LSM
+                        Log.d(TAG, "Starting mcOptCal Service" )
+                        intent = new Intent(MainActivity.this, classOf[mcOptCalService])
+
+                        Log.d(TAG, "Starting mcOptCal Service" )
+                        startService(intent)
+                        bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                      }
+                    }
+
+                  }
+                })
+              }
+            })
         lsmParamsDialog
       }
       case SettingsDlg => {
