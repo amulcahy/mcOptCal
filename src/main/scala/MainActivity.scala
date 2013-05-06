@@ -100,7 +100,6 @@ class mcOptCalService extends Service with Actor {
   var calcRunning = false
   var calcStr: String = "idle"
 
-  // TODO Messenger Implementation
   var mClients = List[Messenger]()
 
   var statusStr = ""
@@ -215,7 +214,7 @@ class mcOptCalService extends Service with Actor {
           statusStr = calcStr
           calcComplete = true
           progressState = false
-          notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
+          //notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
           //mNM.notify(1, notification)
           // 1.02
           mNM.cancel(1)
@@ -738,85 +737,6 @@ class MainActivity extends Activity with TypedActivity {
             }
           })
         .create()
-        //alrtDialog.show()
-        /*alrtDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(new OnClickListener() {
-            override def onClick(view: View) {
-              val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
-              val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
-              val riskFreeRate = textEntryView.findViewById(R.id.edittext3).asInstanceOf[EditText].getText().toString.toDouble
-              val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
-              val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
-
-              val stateData = StateData.restoreFromPreferences(getApplicationContext)
-
-              val newStateData = StateData(
-                stateData.payoffFnStr,
-                stateData.isPut,
-                stateData.numPaths,
-                timeToExpiration,
-                stateData.numSteps,
-                stock,
-                exercisePrice,
-                riskFreeRate,
-                volatility,
-                stateData.numSamples,
-                stateData.threshold,
-                stateData.uiUpdateInterval )
-              newStateData.saveToSharedPreferences(getApplicationContext)
-
-              val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-              prefs.edit().putString("stateDataSaved", "true").commit()
-
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              alrtDialog.dismiss()
-
-              val params = LsmParams(
-                lsm.EqnParsers.parseEval(stateData.payoffFnStr),
-                stateData.payoffFnStr,
-                stateData.numPaths,
-                stateData.timeToExpiration.toInt,
-                stateData.numSteps,
-                stateData.stock,
-                stateData.exercisePrice,
-                stateData.riskFreeRate,
-                stateData.volatility,
-                stateData.numSamples,
-                stateData.threshold,
-                stateData.uiUpdateInterval,
-                getApplicationContext )
-
-              val strB = new StringBuilder
-              strB.append("\nStart BS calculation:\n[\n")
-              val formatStr = "% .3f"
-              strB.append(" T:  "+params.expiry+"\n")
-              strB.append(" S0: "+(formatStr.format(params.stock))+"\n")
-              strB.append(" K:  "+(formatStr.format(params.strike))+"\n")
-              strB.append(" R:  "+(formatStr.format(params.rate))+"\n")
-              strB.append(" V:  "+(formatStr.format(params.volatility))+"\n")
-              strB.append("]\n")
-
-              val newData = {
-                val bsEuroCallVal = dgmath.bsEuropeanCallVal(
-                  params.stock,
-                  params.strike,
-                  params.rate,
-                  params.expiry,
-                  params.volatility )
-                val bsEuroPutVal = dgmath.bsEuropeanPutVal(
-                  params.stock,
-                  params.strike,
-                  params.rate,
-                  params.expiry,
-                  params.volatility )
-                strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
-              }
-              cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
-              updateOutputText(cacheData.statusStr)
-
-            }
-          })*/
         alrtDialog
       }
       case LsmParametersDlg => {

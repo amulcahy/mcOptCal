@@ -36,13 +36,4 @@ object AndroidBuild extends Build {
     settings = General.fullAndroidSettings
   )
 
-  lazy val tests = Project (
-    "tests",
-    file("tests"),
-    settings = General.settings ++
-               AndroidTest.androidSettings ++
-               General.proguardSettings ++ Seq (
-      name := "Monte Carlo AppTests"
-    )
-  ) dependsOn main
 }

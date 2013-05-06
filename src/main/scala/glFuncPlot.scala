@@ -84,11 +84,8 @@ class glFuncPlotRenderer extends GLSurfaceView.Renderer {
   "}							\n";
 
   private def loadShader(iType: Int, shaderCode: String): Int = {
-    //Create a vertex shader type
-    //or a fragment shader type
     val shader: Int = GLES20.glCreateShader(iType);
 
-    //add the source code to the shader and compile it
     GLES20.glShaderSource(shader, shaderCode);
     GLES20.glCompileShader(shader);
 
@@ -226,7 +223,6 @@ class glFuncPlotRenderer extends GLSurfaceView.Renderer {
     Log.e(TAG, "init4 End")
   }
 
-
   def initView() {
     Log.e(TAG, "initView")
     Matrix.setIdentityM(mMMatrix, 0)
@@ -236,8 +232,6 @@ class glFuncPlotRenderer extends GLSurfaceView.Renderer {
   override def onSurfaceCreated(glUnused: GL10, config: EGLConfig) {
     Log.e(TAG, "onSurfaceCreated")
 
-    //Set the background frame color
-    //GLES20.glClearColor(0.2f, 0.2f, 0.2f, 1)
     GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1)
     GLES20.glEnable(GLES20.GL_DEPTH_TEST)
     GLES20.glDepthFunc(GLES20.GL_LEQUAL)
@@ -257,7 +251,6 @@ class glFuncPlotRenderer extends GLSurfaceView.Renderer {
     indexLength = plotIndices.length
 
     //Log.e(TAG, "initShapes3 End")
-
     val vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderCode)
     val fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode)
 
@@ -266,7 +259,6 @@ class glFuncPlotRenderer extends GLSurfaceView.Renderer {
     GLES20.glAttachShader(mProgram, fragmentShader)
     GLES20.glLinkProgram(mProgram)
 
-    //get handle to the vertex shaders vPos member
     maPositionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition")
     maColourHandle = GLES20.glGetAttribLocation(mProgram, "vColour")
     muMVPMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uMVPMatrix")
@@ -285,21 +277,14 @@ class glFuncPlotRenderer extends GLSurfaceView.Renderer {
 
     //Matrix.frustumM(mProjMatrix, 0, -ratio, ratio, -1, 1, 1, 10)
     Matrix.orthoM(mProjMatrix, 0, -2.1f, 2.1f, -2.1f, 2.1f, 1, 10)
-
     //Matrix.setLookAtM(mVMatrix, 0, 0.0f, 0.0f, -5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f)
     Matrix.setLookAtM(mVMatrix, 0, 0.0f, 0.0f, -5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f)
   }
 
   override def onDrawFrame(gl: GL10) {
     //Log.e(TAG, "onDrawFrame")
-
-    //Redraw background color
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT)
-
-    //Add program
     GLES20.glUseProgram(mProgram)
-
-    //Prepare the cube data
     GLES20.glVertexAttribPointer(maPositionHandle, 3, GLES20.GL_FLOAT, false, 0, plotVertBuffer)
     GLES20.glEnableVertexAttribArray(maPositionHandle)
     GLES20.glVertexAttribPointer(maColourHandle, 4, GLES20.GL_FLOAT, false, 0, plotColourBuffer)
@@ -310,9 +295,7 @@ class glFuncPlotRenderer extends GLSurfaceView.Renderer {
     Matrix.multiplyMM(mMVPMatrix, 0, mMMatrix, 0, mMVPMatrix, 0)
     Matrix.multiplyMM(mMVPMatrix, 0, mVMatrix, 0, mMVPMatrix, 0)
     Matrix.multiplyMM(mMVPMatrix, 0, mProjMatrix, 0, mMVPMatrix, 0)
-
     GLES20.glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix, 0)
-
     GLES20.glDrawElements(GLES20.GL_LINES, indexLength, GLES20.GL_UNSIGNED_SHORT, plotIndexBuffer)
   }
 
