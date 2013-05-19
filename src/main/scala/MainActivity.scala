@@ -469,7 +469,7 @@ class MainActivity extends Activity with TypedActivity {
             stateData.numSamples,
             stateData.threshold,
             stateData.uiUpdateInterval,
-            getApplicationContext
+            getApplicationContext.getExternalFilesDir(null)
             )
 
           progress1.setVisibility(View.VISIBLE)
@@ -693,7 +693,7 @@ class MainActivity extends Activity with TypedActivity {
                 stateData.numSamples,
                 stateData.threshold,
                 stateData.uiUpdateInterval,
-                getApplicationContext )
+                getApplicationContext.getExternalFilesDir(null) )
 
               val strB = new StringBuilder
               strB.append("\nStart BS calculation:\n[\n")

@@ -20,7 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 package com.dragongate_technologies.mcOptCal
+// ANDROID NonSPECIFIC package com.dragongate_technologies.dgmath
 
+// ANDROID SPECIFIC
 import _root_.android.app.{Activity, Notification, NotificationManager, PendingIntent, Service}
 import _root_.android.content
 import _root_.android.content.{ComponentName, Context, Intent, ServiceConnection, SharedPreferences}
@@ -32,7 +34,7 @@ import _root_.android.text.method.ScrollingMovementMethod
 import _root_.android.util.{AttributeSet, Log}
 import _root_.android.view.{SurfaceView, View}
 import _root_.android.view.View.OnClickListener
-import _root_.android.widget.{Button, TextView}
+import _root_.android.widget.{Button, TextView} // ANDROID SPECIFIC END
 
 import java.io.File
 import java.io.RandomAccessFile
@@ -102,16 +104,21 @@ object dgmath {
  * @param m The number of rows.
  * @param n The number of columns.
  */
+/* ANDROID NOTE TODO change Context to File
 class Matrix(m: Int, n: Int, _context: Context) { //todo make this generic for other types than doubles
+*/
+class Matrix(m: Int, n: Int, _dataDir: File) { //todo make this generic for other types than doubles
   val rows = m
   val cols = n
-  val context = _context
+  // ANDROID DELETE val context = _context
+  val dataDir = _dataDir
   val overThreshold = (m*n > Matrix.threshold)
 
   protected val tempFile = {
     if (overThreshold) {
-      //val dataDir = new File("/sdcard/mcTempFiles/") //todo
+      /* ANDROID NOTE move to caller
       val dataDir = context.getExternalFilesDir(null)
+      */
       val fileName = this.hashCode.toString+System.nanoTime.toString+".dat"
       assert(!(new File(dataDir, fileName)).isFile())
       new File(dataDir, fileName)
@@ -141,15 +148,15 @@ class Matrix(m: Int, n: Int, _context: Context) { //todo make this generic for o
    *
    * @param m The number of rows.
    */
-  def this(m: Int, context: Context) = this(m, 1, context)
+  def this(m: Int, dataDir: File) = this(m, 1, dataDir)
 
   /**
    * @constructor Create a new Matrix from inArray.
    *
    * @param m The number of rows.
    */
-  def this(inArray: Array[Array[Double]], context: Context) = {
-    this(inArray.length, inArray(0).length, context)
+  def this(inArray: Array[Array[Double]], dataDir: File) = {
+    this(inArray.length, inArray(0).length, dataDir)
     var i = 0
     while (i < rows) {
       var j = 0
@@ -186,7 +193,7 @@ class Matrix(m: Int, n: Int, _context: Context) { //todo make this generic for o
   def *(b: Matrix): Matrix = {
     assert (cols == b.rows)
     val p = b.cols
-    val ab = new Matrix(rows, p, b.context)
+    val ab = new Matrix(rows, p, b.dataDir)
     var i = 0
     while (i < rows) {
       var j = 0
@@ -270,9 +277,9 @@ object Matrix {
   
   var threshold = 50000
 
-  private def identity(m: Int, n: Int, context: Context): Matrix = {
+  private def identity(m: Int, n: Int, dataDir: File): Matrix = {
     assert(m == n)
-    val idMatrix = new Matrix(m, n, context)
+    val idMatrix = new Matrix(m, n, dataDir)
     var idx = 0
     while (idx < m) {
       idMatrix(idx, idx) = 1.0D
@@ -285,7 +292,7 @@ object Matrix {
    * Generate the inverse matrix using Gaussian-Jordan elimination.
    */
   val gjInverse = (matrix: Matrix) => {
-    val gjMatrix = new Matrix(matrix.rows, matrix.cols, matrix.context)
+    val gjMatrix = new Matrix(matrix.rows, matrix.cols, matrix.dataDir)
     var i = 0
     while (i < matrix.rows) {
       var j = 0
@@ -295,7 +302,7 @@ object Matrix {
       }
       i += 1
     }
-    val invMatrix = Matrix.identity(matrix.rows, matrix.cols, matrix.context)
+    val invMatrix = Matrix.identity(matrix.rows, matrix.cols, matrix.dataDir)
 
     var pivot = 0
     while ((pivot < matrix.rows) && (pivot < matrix.cols)) {
@@ -334,7 +341,7 @@ object Matrix {
    * Generate the transpose Matrix.
    */
   val transpose = (matrix: Matrix) => {
-    val tMatrix = new Matrix(matrix.cols, matrix.rows, matrix.context)
+    val tMatrix = new Matrix(matrix.cols, matrix.rows, matrix.dataDir)
     var i = 0
     while (i < matrix.rows) {
       var j = 0
@@ -365,7 +372,7 @@ object Matrix {
   * @param numSamples todo
   * @param threshold todo
   * @param uiUpdateInterval todo
-  * @param context todo
+  * @param dataDir: File = new File("/home/anthony/scala_work/mcTempFiles/")
   * 
   * @note dT = expiry / numSteps
   */
@@ -382,7 +389,7 @@ case class LsmParams(
   numSamples: Int,
   threshold: Int,
   uiUpdateInterval: Int,
-  context: Context
+  dataDir: File = new File("/home/anthony/scala_work/mcTempFiles/") // ANDROID DELETE context: Context
   ) {
 
   /**
@@ -428,7 +435,7 @@ object lsm {
   val genPriceMatrix = (params: LsmParams) => {
     assert( params.numPaths%2 == 0)
     val n = params.numSteps+1
-    val pMatrix = new Matrix(params.numPaths, n, params.context)
+    val pMatrix = new Matrix(params.numPaths, n, params.dataDir)
     val a = (params.rate -  sqr(params.volatility)*0.5)*params.dT
     val b = params.volatility*sqrt(params.dT)
     var i = 0
@@ -501,7 +508,6 @@ object lsm {
     priceMatrix: Matrix, 
     cfMatrix: Matrix
     ) => {
-    //Log.d(TAG, "calcCFAtStep-Start" )
 
     if (step == params.numSteps) {
       var i = 0
@@ -524,8 +530,8 @@ object lsm {
       }
 
       //val x = new Matrix(xySize, 1)
-      val y = new Matrix(xySize, 1, params.context)
-      val fnX = new Matrix(xySize, fn(0).length, params.context)
+      val y = new Matrix(xySize, 1, params.dataDir)
+      val fnX = new Matrix(xySize, fn(0).length, params.dataDir)
       i = 0
       var k = 0
       while (i < params.numPaths) {
@@ -545,7 +551,6 @@ object lsm {
         i += 1
       }
       val contMatrix = regress(fnX, y)
-      //Log.d(TAG, "calcCFAtStep-1" )
 
       i = 0
       var j = 0
@@ -567,7 +572,6 @@ object lsm {
         }
         i += 1
       }
-      //Log.d(TAG, "calcCFAtStep-End" )
       cfMatrix
     }
   }
@@ -625,33 +629,6 @@ object lsm {
     * @param basisFn The basis function.
     *
     */
-  /*@tailrec val recurseCF:(Int, LsmParams, Matrix, Matrix, (Double) => Array[Double], Actor) => Matrix =
-  (step: Int, params: LsmParams, priceMatrix: Matrix, cfMatrix: Matrix, basisFn: (Double) => Array[Double], callerService: Actor) => {
-    assert(priceMatrix.rows == params.numPaths)
-    assert(priceMatrix.cols == params.numSteps+1)
-    assert(cfMatrix.rows == params.numPaths)
-    assert(cfMatrix.cols == params.numSteps)
-
-    step match {
-      case 1 => calcCFAtStep(1, basisFn, params, priceMatrix, cfMatrix)
-      case _ => {
-        if (callerService != null)
-          callerService ! lsmStatusReport(step, params.numSteps)
-        else
-          Log.d(TAG, "recurseCF step="+step )
-
-        receiveWithin(1) {
-          case TIMEOUT => { }
-          case CalcStop => {
-            Log.d(TAG, "Calc.stopping" )
-            exit()
-          }
-        }
-        val newCFMatrix = calcCFAtStep(step, basisFn, params, priceMatrix, cfMatrix)
-        recurseCF(step-1, params, priceMatrix, newCFMatrix, basisFn, callerService)
-      }
-    }
-  }*/
 
   val recurseCF = (initStep: Int, params: LsmParams, priceMatrix: Matrix, cfMatrix: Matrix, basisFn: (Double) => Array[Double], callerService: Actor) => {
     assert(priceMatrix.rows == params.numPaths)
@@ -664,20 +641,22 @@ object lsm {
     var abort = false // 1.01
     while ((step > 0) && !abort) { // 1.01
       if (step%params.uiUpdateInterval == 0) {
+        // ANDROID SPECIFIC
         if (callerService != null)
           callerService ! lsmStatusReport(step, params.numSteps)
         else
           Log.d(TAG, "recurseCF step="+step )
+        println("recurseCF step="+step )
         receiveWithin(1) {
           case TIMEOUT => { }
           case CalcStopLSM => {
-            Log.d(TAG, "CalcStopLSM" )
+            println("CalcStopLSM" ) // Log.d(TAG, "CalcStopLSM" )
             abort = true // 1.01
-      // 1.02
-      callerService ! lsmAbortReport
-      exit()
+            // 1.02
+            callerService ! lsmAbortReport
+            exit()
           }
-        }
+        } // ANDROID SPECIFIC END
       }
 
       // 1.01
@@ -686,10 +665,12 @@ object lsm {
       step -= 1
     }
     // 1.01
+    // ANDROID SPECIFIC
     if (abort) {
       callerService ! lsmAbortReport
       exit()
     }
+    // ANDROID SPECIFIC END
     newCFMatrix
   }
 
@@ -704,7 +685,7 @@ object lsm {
     if (DEBUG)
       println("priceMatrix:\n"+priceMatrix)
 
-    val initCFMatrix = new Matrix(params.numPaths, params.numSteps, params.context) 
+    val initCFMatrix = new Matrix(params.numPaths, params.numSteps, params.dataDir) 
 
     // normalize parameter x to prevent underflows
     val basisFn = (x: Double) => Array (
@@ -728,9 +709,11 @@ object lsm {
     * First walk through example in the LSM paper
     *
     */
-  /*def lsmOptionValueSimpleExample() {
+  def lsmOptionValueSimpleExample() {
     val startTime = System.nanoTime
-    val params = LsmParams( true, 8, 3, 3, 1.0, 1.10, 0.06, 0.0, 8, 50000, 10 ) 
+    val payoffFnStr = "K-S"
+    val payoffFn = lsm.EqnParsers.parseEval(payoffFnStr)
+    val params = LsmParams( payoffFn, payoffFnStr, 8, 3, 3, 1.0, 1.10, 0.06, 0.0, 8, 50000, 10 ) 
     println ("params = "+params)
 
     val priceMatrix = new Matrix(Array(
@@ -742,11 +725,11 @@ object lsm {
       Array(1.00, 0.76, 0.77, 0.90),
       Array(1.00, 0.92, 0.84, 1.01),
       Array(1.00, 0.88, 1.22, 1.34)
-      ), params.context)
+      ), params.dataDir)
     if (DEBUG)
       println("priceMatrix:\n"+priceMatrix)
 
-    val initCFMatrix = new Matrix(params.numPaths, params.numSteps, params.context) 
+    val initCFMatrix = new Matrix(params.numPaths, params.numSteps, params.dataDir) 
     val basisFn = (x: Double) => Array ( 1.0, x, sqr(x) )
     val cfMatrix = recurseCF(params.numSteps, params, priceMatrix, initCFMatrix, basisFn, null)
 
@@ -756,7 +739,7 @@ object lsm {
 
     val lsmOV = optionValueStdErr(params, cfMatrix)
     prettyPrint(lsmOV, endTime-startTime)
-  }*/
+  }
 
   private def prettyPrint(a: Array[Double]) {
     var str: String = "["
@@ -885,12 +868,12 @@ object lsm {
     * @param params The lsm parameters.
     *
     */
-  /*def simulate(params: LsmParams)  {
+  def simulate(params: LsmParams)  {
     println ("params = "+params)
     val startTime = System.nanoTime
-    val lsmOV = lsmOptionValue(params)
+    val lsmOV = lsmOptionValue(params, null)
     val endTime = System.nanoTime
-    prettyPrint(lsmOV, endTime-startTime)
+    prettyPrint((lsmOV._1, lsmOV._2), endTime-startTime) // todo
   }
 
   val rows = 10
@@ -919,17 +902,19 @@ object lsm {
 
     lsmOptionValueSimpleExample()
 
-    val test_01 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
-    val test_02 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.20 ) 
+    val payoffFn = lsm.EqnParsers.parseEval("K-S")
+    val test_01 = LsmParams( payoffFn, "K-S", 10000, 1, 50, 36.0, 40.0, 0.06, 0.20, 50, 50000, 1 ) 
+    //val test_01 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
+    /*val test_02 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.20 ) 
     val test_03 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.40 ) 
-    val test_04 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.40 ) 
+    val test_04 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.40 ) */
     simulate(test_01)
-    simulate(test_02)
+    /*simulate(test_02)
     simulate(test_03)
-    simulate(test_04)
+    simulate(test_04)*/
 
     // examples from the table on p16 of the LSM paper
-    val example2_01 = LsmParams( true, 100000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
+    /*val example2_01 = LsmParams( true, 100000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
     val example2_02 = LsmParams( true, 100000, 2, 100, 36.0, 40.0, 0.06, 0.20 ) 
     val example2_03 = LsmParams( true, 100000, 1, 50, 36.0, 40.0, 0.06, 0.40 ) 
     val example2_04 = LsmParams( true, 100000, 2, 100, 36.0, 40.0, 0.06, 0.40 ) 
@@ -973,9 +958,9 @@ object lsm {
     simulate(example2_17)
     simulate(example2_18)
     simulate(example2_19)
-    simulate(example2_20)
+    simulate(example2_20)*/
 
     println("Complete")
-  }*/
+  }
 }
 
