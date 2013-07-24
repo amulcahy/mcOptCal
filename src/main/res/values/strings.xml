@@ -1,6 +1,7 @@
 <resources>
   <string name="app_name">mcOptCal</string>
   <string name="bs">BS</string>
+  <string name="asian">ASIAN</string>
   <string name="lsm">LSM</string>
   <string name="ok">OK</string>
   <string name="cancel">CANCEL</string>

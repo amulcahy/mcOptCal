@@ -19,10 +19,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package com.dragongate_technologies.mcOptCal
-// ANDROID NonSPECIFIC package com.dragongate_technologies.dgmath
+// AndroidSpecificCode 
+package com.dragongate_technologies.mcOptCal // AndroidSpecificCode  */
+/* nonAndroidSpecificCode 
+package com.dragongate_technologies.dgmath // nonAndroidSpecificCode  */
 
-// ANDROID SPECIFIC
+// AndroidSpecificCode
 import _root_.android.app.{Activity, Notification, NotificationManager, PendingIntent, Service}
 import _root_.android.content
 import _root_.android.content.{ComponentName, Context, Intent, ServiceConnection, SharedPreferences}
@@ -34,7 +36,7 @@ import _root_.android.text.method.ScrollingMovementMethod
 import _root_.android.util.{AttributeSet, Log}
 import _root_.android.view.{SurfaceView, View}
 import _root_.android.view.View.OnClickListener
-import _root_.android.widget.{Button, TextView} // ANDROID SPECIFIC END
+import _root_.android.widget.{Button, TextView} // AndroidSpecificCode END */
 
 import java.io.File
 import java.io.RandomAccessFile
@@ -104,21 +106,14 @@ object dgmath {
  * @param m The number of rows.
  * @param n The number of columns.
  */
-/* ANDROID NOTE TODO change Context to File
-class Matrix(m: Int, n: Int, _context: Context) { //todo make this generic for other types than doubles
-*/
 class Matrix(m: Int, n: Int, _dataDir: File) { //todo make this generic for other types than doubles
   val rows = m
   val cols = n
-  // ANDROID DELETE val context = _context
   val dataDir = _dataDir
   val overThreshold = (m*n > Matrix.threshold)
 
   protected val tempFile = {
     if (overThreshold) {
-      /* ANDROID NOTE move to caller
-      val dataDir = context.getExternalFilesDir(null)
-      */
       val fileName = this.hashCode.toString+System.nanoTime.toString+".dat"
       assert(!(new File(dataDir, fileName)).isFile())
       new File(dataDir, fileName)
@@ -377,7 +372,7 @@ object Matrix {
   * @note dT = expiry / numSteps
   */
 case class LsmParams(
-  payoffFn: (Double, LsmParams) => Double,
+  payoffFn: (Double, Double, LsmParams) => Double,
   payoffFnStr: String,
   numPaths: Int,
   expiry: Int,
@@ -389,7 +384,7 @@ case class LsmParams(
   numSamples: Int,
   threshold: Int,
   uiUpdateInterval: Int,
-  dataDir: File = new File("/home/anthony/scala_work/mcTempFiles/") // ANDROID DELETE context: Context
+  dataDir: File = new File("/home/anthony/scala_work/mcTempFiles/")
   ) {
 
   /**
@@ -416,7 +411,7 @@ case class LsmParams(
 }
 
 object lsm {
-  type PayoffFn = (Double, LsmParams) => Double
+  type PayoffFn = (Double, Double, LsmParams) => Double
   import Matrix._
   private val TAG: String = "lsm"
 
@@ -436,6 +431,7 @@ object lsm {
     assert( params.numPaths%2 == 0)
     val n = params.numSteps+1
     val pMatrix = new Matrix(params.numPaths, n, params.dataDir)
+    val maxMinAvgMatrix = new Matrix(params.numPaths, 3, params.dataDir) // 20130716 addition
     val a = (params.rate -  sqr(params.volatility)*0.5)*params.dT
     val b = params.volatility*sqrt(params.dT)
     var i = 0
@@ -445,17 +441,39 @@ object lsm {
       var s1 = params.stock
       var s2 = params.stock
       var j = 1
+      maxMinAvgMatrix(i*2, 0) = params.stock
+      maxMinAvgMatrix(i*2+1, 0) = params.stock
+      maxMinAvgMatrix(i*2, 1) = params.stock
+      maxMinAvgMatrix(i*2+1, 1) = params.stock
+
+      maxMinAvgMatrix(i*2, 2) = 0.0
+      maxMinAvgMatrix(i*2+1, 2) = 0.0
+      //maxMinAvgMatrix(i*2, 2) = params.stock/(n-1)
+      //maxMinAvgMatrix(i*2+1, 2) = params.stock/(n-1)
+            //maxCF = max(maxCF, cfMatrix(i, j)*exp(-params.rate*((j-(step-1))*params.dT)))
       while (j < n) {
         val dZ = rng.nextGaussian
         s1 = s1*exp(a + b*dZ)
         s2 = s2*exp(a - b*dZ) // antithetic path
         pMatrix(i*2, j) = s1
         pMatrix(i*2+1, j) = s2
+
+        maxMinAvgMatrix(i*2, 0) = max(maxMinAvgMatrix(i*2, 0), s1)
+        maxMinAvgMatrix(i*2+1, 0) = max(maxMinAvgMatrix(i*2+1, 0), s2)
+        maxMinAvgMatrix(i*2, 1) = min(maxMinAvgMatrix(i*2, 1), s1)
+        maxMinAvgMatrix(i*2+1, 1) = min(maxMinAvgMatrix(i*2+1, 1), s2)
+
+        maxMinAvgMatrix(i*2, 2) = maxMinAvgMatrix(i*2, 2) + s1/(n-1)
+        maxMinAvgMatrix(i*2+1, 2) = maxMinAvgMatrix(i*2+1, 2) + s2/(n-1)
+
         j += 1
       }
+      //maxMinAvgMatrix(i*2, 2) = maxMinAvgMatrix(i*2, 2) * exp(-params.rate*params.expiry)
+      //maxMinAvgMatrix(i*2+1, 2) = maxMinAvgMatrix(i*2+1, 2) * exp(-params.rate*params.expiry)
       i += 1
     }
-    pMatrix
+
+    (pMatrix, maxMinAvgMatrix)
   }
 
   val getPriceMatrixSample = (numSamples: Int, priceMatrix: Matrix) => {
@@ -506,14 +524,15 @@ object lsm {
     fn: (Double) => Array[Double], 
     params: LsmParams, 
     priceMatrix: Matrix, 
+    maxMinAvgMatrix: Matrix, 
     cfMatrix: Matrix
     ) => {
 
     if (step == params.numSteps) {
       var i = 0
       while (i < params.numPaths) {
-        if (params.payoffFn(priceMatrix(i, step), params) > 0)
-          cfMatrix(i, step-1) = params.payoffFn(priceMatrix(i, step), params)
+        if (params.payoffFn(priceMatrix(i, step), maxMinAvgMatrix(i, 2), params) > 0)
+          cfMatrix(i, step-1) = params.payoffFn(priceMatrix(i, step), maxMinAvgMatrix(i, 2), params)
         i += 1
       }
       if (DEBUG) {
@@ -524,7 +543,7 @@ object lsm {
       var xySize = 0
       var i = 0
       while (i < params.numPaths) {
-        if (params.payoffFn(priceMatrix(i, step), params) > 0)
+        if (params.payoffFn(priceMatrix(i, step), maxMinAvgMatrix(i, 2), params) > 0)
           xySize += 1 
         i += 1
       }
@@ -535,7 +554,7 @@ object lsm {
       i = 0
       var k = 0
       while (i < params.numPaths) {
-        if (params.payoffFn(priceMatrix(i, step), params) > 0) {
+        if (params.payoffFn(priceMatrix(i, step), maxMinAvgMatrix(i, 2), params) > 0) {
           //x(k, 0) =  priceMatrix(i, step)
           //fnX(k) = fn(x(k, 0))
           fnX(k) = fn(priceMatrix(i, step))
@@ -555,15 +574,15 @@ object lsm {
       i = 0
       var j = 0
       while (i < params.numPaths) {
-        if (params.payoffFn(priceMatrix(i, step), params) > 0) {
+        if (params.payoffFn(priceMatrix(i, step), maxMinAvgMatrix(i, 2), params) > 0) {
           cfMatrix(i, step-1) = {
-            if (params.payoffFn(priceMatrix(i, step), params) >= contMatrix(j, 0) ) {
+            if (params.payoffFn(priceMatrix(i, step), maxMinAvgMatrix(i, 2), params) >= contMatrix(j, 0) ) {
               k = step
               while (k < cfMatrix.cols) {
                 cfMatrix(i, k) = 0
                 k += 1
               }
-              params.payoffFn(priceMatrix(i, step), params)
+              params.payoffFn(priceMatrix(i, step), maxMinAvgMatrix(i, 2), params)
             } else {
               0.0 // don't exercise now
             }
@@ -618,6 +637,38 @@ object lsm {
     (optionValue, stdErr)
   }
 
+  val asianOptionValueStdErr = (params: LsmParams, priceMatrix: Matrix, maxMinAvgMatrix: Matrix) => {
+    val m = params.numPaths
+    val pvArray = Array.ofDim[Double](m)
+
+    var i = 0
+    var n = 0
+    var mean = 0.0D
+    var m2 = 0.0D
+    while (i < m) {
+      if (params.payoffFn(priceMatrix(i, params.numSteps), maxMinAvgMatrix(i, 2), params) > 0)
+          pvArray(i) = params.payoffFn(priceMatrix(i, params.numSteps), maxMinAvgMatrix(i, 2), params)*exp(-params.rate*params.expiry)
+
+      val x = pvArray(i)
+      n += 1
+      val delta = x - mean
+      mean += delta/n
+      m2 += delta*(x - mean)
+
+      i += 1
+    }
+    val optionValue = pvArray.sum / m
+    val variance = m2/(n-1)
+    val sampStdDev = sqrt(variance)
+    val stdErr = sampStdDev/sqrt(m)
+    if (DEBUG) {
+      println("pvArray")
+      prettyPrint(pvArray)
+    }
+    (optionValue, stdErr)
+  }
+
+
 
   /**
     * Recurse through the cash flow matrix calculating the cash flows at each time step.
@@ -630,7 +681,7 @@ object lsm {
     *
     */
 
-  val recurseCF = (initStep: Int, params: LsmParams, priceMatrix: Matrix, cfMatrix: Matrix, basisFn: (Double) => Array[Double], callerService: Actor) => {
+  val recurseCF = (initStep: Int, params: LsmParams, priceMatrix: Matrix, maxMinAvgMatrix: Matrix, cfMatrix: Matrix, basisFn: (Double) => Array[Double], callerService: Actor) => {
     assert(priceMatrix.rows == params.numPaths)
     assert(priceMatrix.cols == params.numSteps+1)
     assert(cfMatrix.rows == params.numPaths)
@@ -641,7 +692,7 @@ object lsm {
     var abort = false // 1.01
     while ((step > 0) && !abort) { // 1.01
       if (step%params.uiUpdateInterval == 0) {
-        // ANDROID SPECIFIC
+        // AndroidSpecificCode
         if (callerService != null)
           callerService ! lsmStatusReport(step, params.numSteps)
         else
@@ -656,21 +707,21 @@ object lsm {
             callerService ! lsmAbortReport
             exit()
           }
-        } // ANDROID SPECIFIC END
+        } // AndroidSpecificCode END */
       }
 
       // 1.01
       if (!abort)
-        newCFMatrix = calcCFAtStep(step, basisFn, params, priceMatrix, newCFMatrix)
+        newCFMatrix = calcCFAtStep(step, basisFn, params, priceMatrix, maxMinAvgMatrix, newCFMatrix)
       step -= 1
     }
     // 1.01
-    // ANDROID SPECIFIC
+    // AndroidSpecificCode
     if (abort) {
       callerService ! lsmAbortReport
       exit()
     }
-    // ANDROID SPECIFIC END
+    // AndroidSpecificCode END */
     newCFMatrix
   }
 
@@ -681,9 +732,13 @@ object lsm {
     */
   val lsmOptionValue = (params: LsmParams, callerService: Actor) => {
     Matrix.threshold = params.threshold
-    val priceMatrix = genPriceMatrix(params)
+    val genMatrix = genPriceMatrix(params)
+    val priceMatrix = genMatrix._1
+    val maxMinAvgMatrix = genMatrix._2
     if (DEBUG)
       println("priceMatrix:\n"+priceMatrix)
+    if (DEBUG)
+      println("maxMinAvgMatrix:\n"+maxMinAvgMatrix)
 
     val initCFMatrix = new Matrix(params.numPaths, params.numSteps, params.dataDir) 
 
@@ -695,7 +750,7 @@ object lsm {
       exp(-x/(2.0*params.stock))*(1.0-2.0*x/params.stock+sqr(x/params.stock)/2.0)
       )
 
-    val cfMatrix = recurseCF(params.numSteps, params, priceMatrix, initCFMatrix, basisFn, callerService)
+    val cfMatrix = recurseCF(params.numSteps, params, priceMatrix, maxMinAvgMatrix, initCFMatrix, basisFn, callerService)
 
     //todo create stopping matrix
 
@@ -703,6 +758,64 @@ object lsm {
       println(cfMatrix)
     val oVsE = optionValueStdErr(params, cfMatrix)
     (oVsE._1, oVsE._2, getPriceMatrixSample(params.numSamples, priceMatrix))
+  }
+
+  val calcAsianOptionValue = (params: LsmParams, callerService: Actor) => {
+    Matrix.threshold = params.threshold
+
+    assert( params.numPaths%2 == 0)
+    val maxMinAvgMatrix = new Matrix(params.numPaths, 1, params.dataDir) // 20130716 addition
+    val a = (params.rate -  sqr(params.volatility)*0.5)*params.dT
+    val b = params.volatility*sqrt(params.dT)
+    var i = 0
+    val m = params.numPaths
+    var n = 0
+    var mean = 0.0D
+    var m2 = 0.0D
+    var sum = 0.0D
+    var x = 0.0D
+
+    while (i < params.numPaths/2) {
+      var s1 = params.stock
+      var s2 = params.stock
+      var j = 1
+
+      maxMinAvgMatrix(i*2, 0) = 0.0
+      maxMinAvgMatrix(i*2+1, 0) = 0.0
+      while (j < params.numSteps+1) {
+        val dZ = rng.nextGaussian
+        s1 = s1*exp(a + b*dZ)
+        s2 = s2*exp(a - b*dZ) // antithetic path
+
+        maxMinAvgMatrix(i*2, 0) = maxMinAvgMatrix(i*2, 0) + s1/(params.numSteps+1-1)
+        maxMinAvgMatrix(i*2+1, 0) = maxMinAvgMatrix(i*2+1, 0) + s2/(params.numSteps+1-1)
+
+        j += 1
+      }
+      i += 1
+    }
+
+    i = 0
+    while (i < m) {
+      if (params.payoffFn(0.0D, maxMinAvgMatrix(i, 0), params) > 0)
+        x = params.payoffFn(0.0D, maxMinAvgMatrix(i, 0), params)*exp(-params.rate*params.expiry)
+      else
+        x = 0.0D
+
+      sum = sum + x
+      n += 1
+      val delta = x - mean
+      mean += delta/n
+      m2 += delta*(x - mean)
+
+      i += 1
+    }
+
+    val optionValue = sum / m
+    val variance = m2/(n-1)
+    val sampStdDev = sqrt(variance)
+    val stdErr = sampStdDev/sqrt(m)
+    (optionValue, stdErr)
   }
 
   /**
@@ -728,10 +841,22 @@ object lsm {
       ), params.dataDir)
     if (DEBUG)
       println("priceMatrix:\n"+priceMatrix)
+    val maxMinAvgMatrix = new Matrix(Array(
+      Array(1.34, 1.00, Double.NaN),
+      Array(1.54, 1.00, Double.NaN),
+      Array(1.22, 1.00, Double.NaN),
+      Array(1.00, 0.92, Double.NaN),
+      Array(1.56, 1.00, Double.NaN),
+      Array(1.00, 0.76, Double.NaN),
+      Array(1.00, 0.92, Double.NaN),
+      Array(1.34, 0.88, Double.NaN)
+      ), params.dataDir)
+    if (DEBUG)
+      println("maxMinAvgMatrix:\n"+maxMinAvgMatrix)
 
     val initCFMatrix = new Matrix(params.numPaths, params.numSteps, params.dataDir) 
     val basisFn = (x: Double) => Array ( 1.0, x, sqr(x) )
-    val cfMatrix = recurseCF(params.numSteps, params, priceMatrix, initCFMatrix, basisFn, null)
+    val cfMatrix = recurseCF(params.numSteps, params, priceMatrix, maxMinAvgMatrix, initCFMatrix, basisFn, null)
 
     if (DEBUG)
       println(cfMatrix)
@@ -785,7 +910,7 @@ object lsm {
 
   /**
     * Equation Parser
-    *
+    * Note: noAndroidSpecificCode
     */
   trait Eqn
   case class Operator(str: String) extends Eqn { override def toString = str }
@@ -809,43 +934,52 @@ object lsm {
       Operator("*") -> { (x, y) => x * y },
       Operator("/") -> { (x, y) => x / y } )
 
-    //def parseEval(input: String): PayoffFn = (mcPrice: Double, params: LsmParams) => evaluate(parse(input), mcPrice, params)
     def parseEval(input: String): PayoffFn = {
       val eqn = parse(input)
       println("parseEval called with input: "+input)
       evaluate(eqn)
     }
 
-    //def evaluate(e: Eqn, mcPrice: Double, params: LsmParams): Double = try {
     def evaluate(e: Eqn): PayoffFn = try {
-      //val payoffFn: PayoffFn = (idx: Int, step: Int, priceMatrix: Matrix, params: LsmParams) => (params.strike - priceMatrix(idx, step))
       e match {
-        case Number(v) => { (mcPrice: Double, params: LsmParams) => v }
-        case Symbol(p) => { (mcPrice: Double, params: LsmParams) => {
-          p match { 
-            case "T" => params.expiry
-            case "S0" => params.stock
-            case "K" => params.strike
-            case "R" => params.rate
-            case "V" => params.volatility
-            case "S" => mcPrice
-          }
-        } }
-        case FunctionOp(fn, arg) => { (mcPrice: Double, params: LsmParams) => functions(fn)(evaluate(arg)(mcPrice, params)) }
-        case ArithmeticOp(arg1, op, arg2) => { (mcPrice: Double, params: LsmParams) => operations(op)(evaluate(arg1)(mcPrice, params), evaluate(arg2)(mcPrice, params)) }
-        case BracketedOp(arg) => { (mcPrice: Double, params: LsmParams) => (evaluate(arg)(mcPrice, params)) }
+        case Number(v) => { (mcPrice: Double, avgPrice:Double, params: LsmParams) => v }
+        case Symbol(p) => {
+          (mcPrice: Double, avgPrice:Double, params: LsmParams) => {
+            p match {
+              case "T" => params.expiry
+              case "S0" => params.stock
+              case "K" => params.strike
+              case "R" => params.rate
+              case "V" => params.volatility
+              case "S" => mcPrice
+              case "SAVG" => avgPrice
+              // todo case "SMAX" => 
+              // todo case "SMIN" => 
+            }
+          } 
+        }
+        case FunctionOp(fn, arg) => {
+          (mcPrice: Double, avgPrice:Double, params: LsmParams) => functions(fn)(evaluate(arg)(mcPrice, avgPrice, params))
+        }
+        case ArithmeticOp(arg1, op, arg2) => { 
+          (mcPrice: Double, avgPrice:Double, params: LsmParams) => 
+          operations(op)(evaluate(arg1)(mcPrice, avgPrice, params), evaluate(arg2)(mcPrice, avgPrice, params)) 
+        }
+        case BracketedOp(arg) => { 
+          (mcPrice: Double, avgPrice: Double, params: LsmParams) => (evaluate(arg)(mcPrice, avgPrice, params)) 
+        }
       }
     } catch {
       case ex: Exception => {
         println("ex: "+ex)
-        (mcPrice: Double, params: LsmParams) => Double.NaN
+        (mcPrice: Double, avgPrice: Double, params: LsmParams) => Double.NaN
       }
     }
 
     def function: Parser[Function] = """exp""".r ^^ (f => Function(f))
     def number: Parser[Number] = """-?\d+(\.\d*)?""".r ^^ (d => Number(d.toDouble))
     def operator: Parser[Operator] = """[+|\-|*|/]""".r ^^ (s => Operator(s))
-    def symbol: Parser[Symbol] = """(T|S0|S|K|R|V)""".r ^^ (s => Symbol(s))
+    def symbol: Parser[Symbol] = """(T|S0|SAVG|S|K|R|V)""".r ^^ (s => Symbol(s))
 
     def operand: Parser[Eqn] = number | symbol | functionop | bracketedop
 
@@ -853,7 +987,6 @@ object lsm {
     def functionop: Parser[FunctionOp] = function~"("~operand~")" ^^ { case fn~"("~arg~")" => FunctionOp(fn, arg) }
     def bracketedop: Parser[Eqn] = "("~(arithmeticop | operand)~")" ^^ { case "("~arg~")" => BracketedOp(arg) }
 
-    //def formula: Parser[Eqn] = functionop | arithmeticop | operator | number | symbol
     def formula: Parser[Eqn] = arithmeticop | bracketedop | functionop
 
     def parse(input: String): Eqn = parseAll(formula, input) match {
@@ -874,6 +1007,15 @@ object lsm {
     val lsmOV = lsmOptionValue(params, null)
     val endTime = System.nanoTime
     prettyPrint((lsmOV._1, lsmOV._2), endTime-startTime) // todo
+  }
+
+  def asianSimulate(params: LsmParams)  {
+    println ("params = "+params)
+    val startTime = System.nanoTime
+    val asianOV = calcAsianOptionValue(params, null)
+    val endTime = System.nanoTime
+    //println(asianOV._1, lsmOV._2), endTime-startTime) // todo
+    println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
   }
 
   val rows = 10
@@ -902,13 +1044,21 @@ object lsm {
 
     lsmOptionValueSimpleExample()
 
-    val payoffFn = lsm.EqnParsers.parseEval("K-S")
-    val test_01 = LsmParams( payoffFn, "K-S", 10000, 1, 50, 36.0, 40.0, 0.06, 0.20, 50, 50000, 1 ) 
-    //val test_01 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
-    /*val test_02 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.20 ) 
+    val payoffFnStr = "K-S"
+    val payoffFn = lsm.EqnParsers.parseEval(payoffFnStr)
+    val test_01 = LsmParams( payoffFn, payoffFnStr, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20, 50, 50000, 1 ) 
+    //simulate(test_01)
+
+    val asianPayoffFnStr = "SAVG-K"
+    val asianPayoffFn = lsm.EqnParsers.parseEval(asianPayoffFnStr)
+    // hull val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 100000, 1, 100, 50.0, 50.0, 0.10, 0.40, 50, 50000, 1 ) 
+    val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 10000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1 ) 
+    asianSimulate(asianTest_01)
+    /*val test_01 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
+    val test_02 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.20 ) 
     val test_03 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.40 ) 
     val test_04 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.40 ) */
-    simulate(test_01)
+    //simulate(test_01)
     /*simulate(test_02)
     simulate(test_03)
     simulate(test_04)*/

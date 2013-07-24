@@ -384,6 +384,7 @@ class MainActivity extends Activity with TypedActivity {
   private val HelpDlg = 3
   private val CopyDlg = 4
   private val LsmParametersDlg = 5
+  private val AsianParametersDlg = 6
 
   var intent: Intent = null
   var calc: Calc = null
@@ -489,6 +490,7 @@ class MainActivity extends Activity with TypedActivity {
 
 
   def btnBS = findView(TR.button1).asInstanceOf[Button]
+  def btnASIAN = findView(TR.buttonAsian).asInstanceOf[Button]
   def btnCopy = findView(TR.buttonCopy).asInstanceOf[Button]
   def btnSettings = findView(TR.buttonSettings).asInstanceOf[Button]
   def btnHelp = findView(TR.buttonHelp).asInstanceOf[Button]
@@ -509,6 +511,8 @@ class MainActivity extends Activity with TypedActivity {
     progress1.setVisibility(View.INVISIBLE)
 
     btnBS.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(ParametersDlg) } })
+
+    btnASIAN.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(AsianParametersDlg) } })
 
     btnCopy.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
@@ -739,6 +743,213 @@ class MainActivity extends Activity with TypedActivity {
         .create()
         alrtDialog
       }
+      case AsianParametersDlg => {
+        val textEntryView = factory.inflate(R.layout.lsmparameters_dialog, null)
+        val asianParamsDialog: AlertDialog = new AlertDialog.Builder(this)
+        .setIcon(R.drawable.logo)
+        .setTitle(R.string.parameters)
+        .setView(textEntryView)
+        .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
+            override def onClick(dialog: DialogInterface, id: Int) {
+              val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
+              val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
+              val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
+              val riskFreeRate = textEntryView.findViewById(R.id.edittext3).asInstanceOf[EditText].getText().toString.toDouble
+              val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
+              val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
+              val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
+              val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+
+              val eqn = lsm.EqnParsers.parse(payoffFnStr)
+              eqn match {
+                case lsm.ErrorText(e) => {
+                  Log.d(TAG, e )
+                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError("Parse Error!")
+                }
+                case _ => {
+                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+
+                  //TODO
+                  val newStateData = StateData(
+                    payoffFnStr,
+                    true,
+                    numPaths,
+                    timeToExpiration,
+                    numSteps,
+                    stock,
+                    exercisePrice,
+                    riskFreeRate,
+                    volatility,
+                    stateData.numSamples,
+                    stateData.threshold,
+                    stateData.uiUpdateInterval )
+                  newStateData.saveToSharedPreferences(getApplicationContext)
+
+                  val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                  prefs.edit().putString("stateDataSaved", "true").commit()
+
+                  val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+                  imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+                  dialog.dismiss()
+
+                  val params = LsmParams(
+                    lsm.EqnParsers.parseEval(newStateData.payoffFnStr),
+                    newStateData.payoffFnStr,
+                    newStateData.numPaths,
+                    newStateData.timeToExpiration.toInt,
+                    newStateData.numSteps,
+                    newStateData.stock,
+                    newStateData.exercisePrice,
+                    newStateData.riskFreeRate,
+                    newStateData.volatility,
+                    newStateData.numSamples,
+                    newStateData.threshold,
+                    newStateData.uiUpdateInterval,
+                    getApplicationContext.getExternalFilesDir(null) )
+
+                  cleanTempFiles //todo
+
+                  Log.d(TAG, "Starting Asian Calculation" )
+                  /*val asianPayoffFnStr = "SAVG-K"
+                  val asianPayoffFn = lsm.EqnParsers.parseEval(asianPayoffFnStr)
+                  val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 1000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1, getApplicationContext.getExternalFilesDir(null) )
+                  println ("asianTest_01 = "+asianTest_01)*/
+                  val startTime = System.nanoTime
+                  //val asianOV = lsm.calcAsianOptionValue(asianTest_01, null)
+                  val asianOV = lsm.calcAsianOptionValue(params, null)
+                  val endTime = System.nanoTime
+
+                  val strB = new StringBuilder
+                  strB.append("\nStart ASIAN calculation:\n[\n")
+                  strB.append("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
+                  cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+strB.result)
+                  updateOutputText(cacheData.statusStr)
+
+                  println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
+                  Log.d(TAG, "Completed Asian Calculation" )
+
+                  // 1.01 start service only when running LSM
+                  //Log.d(TAG, "Starting mcOptCal Service" )
+                  //intent = new Intent(MainActivity.this, classOf[mcOptCalService])
+
+                  //Log.d(TAG, "Starting mcOptCal Service" )
+                  //startService(intent)
+                  //bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                }
+              }
+            }
+          })
+        .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            override def onClick(dialog: DialogInterface, id: Int) {
+              textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+
+              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+              dialog.cancel()
+            }
+          })
+        .create()
+        asianParamsDialog.setOnShowListener(new DialogInterface.OnShowListener() {
+            override def onShow(dialog: DialogInterface) {
+              val b = asianParamsDialog.getButton(DialogInterface.BUTTON_POSITIVE)
+              b.setOnClickListener(new View.OnClickListener() {
+                  override def onClick(view: View) {
+                    val payoffFnStr = textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].getText.toString
+                    val stock = textEntryView.findViewById(R.id.edittext1).asInstanceOf[EditText].getText.toString.toDouble
+                    val exercisePrice = textEntryView.findViewById(R.id.edittext2).asInstanceOf[EditText].getText().toString.toDouble
+                    val riskFreeRate = textEntryView.findViewById(R.id.edittext3).asInstanceOf[EditText].getText().toString.toDouble
+                    val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
+                    val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
+                    val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
+                    val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+
+                    val eqn = lsm.EqnParsers.parse(payoffFnStr)
+                    eqn match {
+                      case lsm.ErrorText(e) => {
+                        Log.d(TAG, e )
+                        textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError("Parse Error!")
+                      }
+                      case _ => {
+                        textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+
+                        //TODO
+                        val newStateData = StateData(
+                          payoffFnStr,
+                          true,
+                          numPaths,
+                          timeToExpiration,
+                          numSteps,
+                          stock,
+                          exercisePrice,
+                          riskFreeRate,
+                          volatility,
+                          stateData.numSamples,
+                          stateData.threshold,
+                          stateData.uiUpdateInterval )
+                        newStateData.saveToSharedPreferences(getApplicationContext)
+
+                        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                        prefs.edit().putString("stateDataSaved", "true").commit()
+
+                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+                        imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+                        asianParamsDialog.dismiss()
+
+                        val params = LsmParams(
+                          lsm.EqnParsers.parseEval(newStateData.payoffFnStr),
+                          newStateData.payoffFnStr,
+                          newStateData.numPaths,
+                          newStateData.timeToExpiration.toInt,
+                          newStateData.numSteps,
+                          newStateData.stock,
+                          newStateData.exercisePrice,
+                          newStateData.riskFreeRate,
+                          newStateData.volatility,
+                          newStateData.numSamples,
+                          newStateData.threshold,
+                          newStateData.uiUpdateInterval,
+                          getApplicationContext.getExternalFilesDir(null) )
+
+                        cleanTempFiles //todo
+
+                  Log.d(TAG, "Starting Asian Calculation" )
+                  /*val asianPayoffFnStr = "SAVG-K"
+                  val asianPayoffFn = lsm.EqnParsers.parseEval(asianPayoffFnStr)
+                  val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 1000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1, getApplicationContext.getExternalFilesDir(null) )
+                  println ("asianTest_01 = "+asianTest_01)*/
+                  val startTime = System.nanoTime
+                  //val asianOV = lsm.calcAsianOptionValue(asianTest_01, null)
+                  val asianOV = lsm.calcAsianOptionValue(params, null)
+                  val endTime = System.nanoTime
+
+                  val strB = new StringBuilder
+                  strB.append("\nStart ASIAN calculation:\n[\n")
+                  strB.append("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
+                  cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+strB.result)
+                  updateOutputText(cacheData.statusStr)
+
+                  println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
+                  Log.d(TAG, "Completed Asian Calculation" )
+
+                        // 1.01 start service only when running LSM
+                        //Log.d(TAG, "Starting mcOptCal Service" )
+                        //intent = new Intent(MainActivity.this, classOf[mcOptCalService])
+
+                        //Log.d(TAG, "Starting mcOptCal Service" )
+                        //startService(intent)
+                        //bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                      }
+                    }
+
+                  }
+                })
+              }
+            })
+        asianParamsDialog
+      }
       case LsmParametersDlg => {
         val textEntryView = factory.inflate(R.layout.lsmparameters_dialog, null)
         val lsmParamsDialog: AlertDialog = new AlertDialog.Builder(this)
@@ -960,6 +1171,16 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.edittext3).asInstanceOf[EditText].setText(stateData.riskFreeRate.toString)
         d.findViewById(R.id.edittext4).asInstanceOf[EditText].setText(stateData.volatility.toString)
         d.findViewById(R.id.edittext5).asInstanceOf[EditText].setText(stateData.timeToExpiration.toString)
+      }
+      case AsianParametersDlg => {
+        d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)
+        d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
+        d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
+        d.findViewById(R.id.edittext3).asInstanceOf[EditText].setText(stateData.riskFreeRate.toString)
+        d.findViewById(R.id.edittext4).asInstanceOf[EditText].setText(stateData.volatility.toString)
+        d.findViewById(R.id.edittext5).asInstanceOf[EditText].setText(stateData.timeToExpiration.toString)
+        d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
+        d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
       }
       case LsmParametersDlg => {
         d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)
