@@ -764,57 +764,67 @@ object lsm {
     Matrix.threshold = params.threshold
 
     assert( params.numPaths%2 == 0)
-    val maxMinAvgMatrix = new Matrix(params.numPaths, 1, params.dataDir) // 20130716 addition
     val a = (params.rate -  sqr(params.volatility)*0.5)*params.dT
     val b = params.volatility*sqrt(params.dT)
     var i = 0
-    val m = params.numPaths
+    //val m = params.numPaths
     var n = 0
     var mean = 0.0D
     var m2 = 0.0D
     var sum = 0.0D
     var x = 0.0D
+    var y = 0.0D
+    val pvDiscount = exp(-params.rate*params.expiry)
 
     while (i < params.numPaths/2) {
       var s1 = params.stock
       var s2 = params.stock
-      var j = 1
+      var avgX = 0.0D
+      var avgY = 0.0D
 
-      maxMinAvgMatrix(i*2, 0) = 0.0
-      maxMinAvgMatrix(i*2+1, 0) = 0.0
+      var j = 1
       while (j < params.numSteps+1) {
         val dZ = rng.nextGaussian
         s1 = s1*exp(a + b*dZ)
         s2 = s2*exp(a - b*dZ) // antithetic path
 
-        maxMinAvgMatrix(i*2, 0) = maxMinAvgMatrix(i*2, 0) + s1/(params.numSteps+1-1)
-        maxMinAvgMatrix(i*2+1, 0) = maxMinAvgMatrix(i*2+1, 0) + s2/(params.numSteps+1-1)
+        avgX = avgX + s1/params.numSteps
+        avgY = avgY + s2/params.numSteps
 
         j += 1
       }
-      i += 1
-    }
 
-    i = 0
-    while (i < m) {
-      if (params.payoffFn(0.0D, maxMinAvgMatrix(i, 0), params) > 0)
-        x = params.payoffFn(0.0D, maxMinAvgMatrix(i, 0), params)*exp(-params.rate*params.expiry)
+      val payOffX = params.payoffFn(0.0D, avgX, params)
+      if (payOffX > 0)
+        x = payOffX*pvDiscount
       else
         x = 0.0D
 
+      val payOffY = params.payoffFn(0.0D, avgY, params)
+      if (payOffY > 0)
+        y = payOffY*pvDiscount
+      else
+        y = 0.0D
+
       sum = sum + x
       n += 1
-      val delta = x - mean
-      mean += delta/n
-      m2 += delta*(x - mean)
+      val deltaX = x - mean
+      mean += deltaX/n
+      m2 += deltaX*(x - mean)
+
+      sum = sum + y
+      n += 1
+      val deltaY = y - mean
+      mean += deltaY/n
+      m2 += deltaY*(y - mean)
 
       i += 1
     }
 
-    val optionValue = sum / m
+    val optionValue = sum / params.numPaths
     val variance = m2/(n-1)
     val sampStdDev = sqrt(variance)
-    val stdErr = sampStdDev/sqrt(m)
+    val stdErr = sampStdDev/sqrt(params.numPaths)
     (optionValue, stdErr)
   }
 
