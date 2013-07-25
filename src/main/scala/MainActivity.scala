@@ -41,7 +41,8 @@ import java.io._
 
 import scala.actors.Actor._
 import scala.actors._
-import scala.concurrent.ops._
+import scala.actors.Futures._
+//import scala.concurrent.ops._ //todo safe to remove???? 20130725
 import scala.io.Source
 import scala.util.{Marshal, Random}
 import scala.math._
@@ -811,18 +812,25 @@ class MainActivity extends Activity with TypedActivity {
                   cleanTempFiles //todo
 
                   Log.d(TAG, "Starting Asian Calculation" )
-                  /*val asianPayoffFnStr = "SAVG-K"
-                  val asianPayoffFn = lsm.EqnParsers.parseEval(asianPayoffFnStr)
-                  val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 1000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1, getApplicationContext.getExternalFilesDir(null) )
-                  println ("asianTest_01 = "+asianTest_01)*/
-                  val startTime = System.nanoTime
-                  //val asianOV = lsm.calcAsianOptionValue(asianTest_01, null)
-                  val asianOV = lsm.calcAsianOptionValue(params, null)
-                  val endTime = System.nanoTime
+                  val f = future {
+                    val startTime = System.nanoTime
+                    val asianOV = lsm.calcAsianOptionValue(params, null)
+                    val endTime = System.nanoTime
+                    (asianOV, startTime, endTime)
+                  }
+                  while(!f.isSet) {
+                    Log.d(TAG, "実行中" )
+                    Thread.sleep(1*1000)
+                  }
+                  val asianOpResult = f()
+                  val asianOV = asianOpResult._1
+                  val startTime = asianOpResult._2
+                  val endTime = asianOpResult._3
 
                   val strB = new StringBuilder
                   strB.append("\nStart ASIAN calculation:\n[\n")
                   strB.append("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
+
                   cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+strB.result)
                   updateOutputText(cacheData.statusStr)
 
@@ -915,24 +923,30 @@ class MainActivity extends Activity with TypedActivity {
 
                         cleanTempFiles //todo
 
-                  Log.d(TAG, "Starting Asian Calculation" )
-                  /*val asianPayoffFnStr = "SAVG-K"
-                  val asianPayoffFn = lsm.EqnParsers.parseEval(asianPayoffFnStr)
-                  val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 1000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1, getApplicationContext.getExternalFilesDir(null) )
-                  println ("asianTest_01 = "+asianTest_01)*/
-                  val startTime = System.nanoTime
-                  //val asianOV = lsm.calcAsianOptionValue(asianTest_01, null)
-                  val asianOV = lsm.calcAsianOptionValue(params, null)
-                  val endTime = System.nanoTime
+                        Log.d(TAG, "Starting Asian Calculation" )
+                        val f = future {
+                          val startTime = System.nanoTime
+                          val asianOV = lsm.calcAsianOptionValue(params, null)
+                          val endTime = System.nanoTime
+                          (asianOV, startTime, endTime)
+                        }
+                        while(!f.isSet) {
+                          Log.d(TAG, "実行中" )
+                          Thread.sleep(1*1000)
+                        }
+                        val asianOpResult = f()
+                        val asianOV = asianOpResult._1
+                        val startTime = asianOpResult._2
+                        val endTime = asianOpResult._3
 
-                  val strB = new StringBuilder
-                  strB.append("\nStart ASIAN calculation:\n[\n")
-                  strB.append("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-                  cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+strB.result)
-                  updateOutputText(cacheData.statusStr)
+                        val strB = new StringBuilder
+                        strB.append("\nStart ASIAN calculation:\n[\n")
+                        strB.append("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
+                        cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+strB.result)
+                        updateOutputText(cacheData.statusStr)
 
-                  println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-                  Log.d(TAG, "Completed Asian Calculation" )
+                        println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
+                        Log.d(TAG, "Completed Asian Calculation" )
 
                         // 1.01 start service only when running LSM
                         //Log.d(TAG, "Starting mcOptCal Service" )
