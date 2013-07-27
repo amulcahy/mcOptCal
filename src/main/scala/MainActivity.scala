@@ -55,6 +55,8 @@ class LSMCalcParams(_params: LsmParams, _callerService: Actor) {
 }
 
 case class CalcStartLSM(params: LSMCalcParams)
+case class CalcStartAsianMC(params: LSMCalcParams)
+case class mcOptCalServiceAsianResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class mcOptCalServiceLSMResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class lsmStatusReport(step: Int, numSteps: Int)
 case class lsmAbortReport
@@ -78,6 +80,14 @@ class Calc extends Actor {
           val endTime = System.nanoTime
           //Debug.stopMethodTracing()
           callerService ! mcOptCalServiceLSMResult(lsmOV, ((endTime-startTime)/1e6).toLong)
+        }
+        case CalcStartAsianMC(lsmCalcParams) => {
+          Log.d(TAG, "CalcStartAsianMC" )
+          callerService = lsmCalcParams.callerService
+          val startTime = System.nanoTime
+          val asianOV = lsm.calcAsianOptionValue(lsmCalcParams.params, lsmCalcParams.callerService)
+          val endTime = System.nanoTime
+          callerService ! mcOptCalServiceAsianResult((asianOV._1, asianOV._2, null), ((endTime-startTime)/1e6).toLong)
         }
       }
     }
@@ -193,6 +203,35 @@ class mcOptCalService extends Service with Actor {
           mBinder.mListener.reportComplete(calcStr)
           calcRunning = false
         }
+        case mcOptCalServiceAsianResult(asianOV, runTime) => {
+          val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
+          val context: Context = getApplicationContext()
+          val notificationIntent = new Intent(this, classOf[MainActivity])
+          val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+
+          calcStr = "Asian Option Value = "+"% 6.4f".format(asianOV._1)+"  ( s.e. "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format(runTime.toDouble/1000)+"sec ]"
+          statusStr = calcStr
+          calcComplete = true
+          progressState = false
+          progressVal = 100
+          //val priceAryRows = lsmOV._3.length
+          //val priceAryCols = lsmOV._3(0).length
+          //priceAry = Array.ofDim[Double](priceAryRows, priceAryCols)
+          //var i = 0
+          /*while (i < priceAryRows) {
+            var j = 0
+            while (j < priceAryCols) {
+              priceAry(i)(j) = lsmOV._3(i)(j)
+              j += 1
+            }
+            i += 1
+          }*/
+          notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
+          mNM.notify(1, notification)
+          Log.d(TAG, "reportComplete("+calcStr )
+          mBinder.mListener.reportComplete(calcStr)
+          calcRunning = false
+        }
         case lsmStatusReport(step, numSteps) => {
           val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
           val context: Context = getApplicationContext()
@@ -226,6 +265,29 @@ class mcOptCalService extends Service with Actor {
           exit()
         }
       }
+    }
+  }
+
+  def startAsianMC(params: LsmParams) { // todo need asianParams?
+    Log.d(TAG, "mcOptCalService.startAsianMC" )
+    if (!calcRunning) {
+      working = true
+      calcRunning = true
+      calc = new Calc
+      this.start //required
+      calc.start
+      progressState = true
+
+      val contentText: CharSequence = "Running Asian MC calculation"
+      val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
+      val context: Context = getApplicationContext()
+      val notificationIntent = new Intent(this, classOf[MainActivity])
+      val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+      notification.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
+      mNM.notify(1, notification)
+
+      val lsmCalcParams = new LSMCalcParams(params, this)
+      calc ! CalcStartAsianMC(lsmCalcParams) //todo
     }
   }
 
@@ -479,7 +541,8 @@ class MainActivity extends Activity with TypedActivity {
           val newData = "\nStart LSM calculation:\n"+params
           cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
           updateOutputText(cacheData.statusStr)
-          mService.startLSM(params)
+          //mService.startLSM(params)
+          mService.startAsianMC(params)
         }
       }
     }
@@ -811,7 +874,7 @@ class MainActivity extends Activity with TypedActivity {
 
                   cleanTempFiles //todo
 
-                  Log.d(TAG, "Starting Asian Calculation" )
+                  /*Log.d(TAG, "Starting Asian Calculation" )
                   val f = future {
                     val startTime = System.nanoTime
                     val asianOV = lsm.calcAsianOptionValue(params, null)
@@ -835,15 +898,15 @@ class MainActivity extends Activity with TypedActivity {
                   updateOutputText(cacheData.statusStr)
 
                   println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-                  Log.d(TAG, "Completed Asian Calculation" )
+                  Log.d(TAG, "Completed Asian Calculation" )*/
 
                   // 1.01 start service only when running LSM
-                  //Log.d(TAG, "Starting mcOptCal Service" )
-                  //intent = new Intent(MainActivity.this, classOf[mcOptCalService])
+                  Log.d(TAG, "Starting mcOptCal Service" )
+                  intent = new Intent(MainActivity.this, classOf[mcOptCalService])
 
-                  //Log.d(TAG, "Starting mcOptCal Service" )
-                  //startService(intent)
-                  //bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                  Log.d(TAG, "Starting mcOptCal Service" )
+                  startService(intent)
+                  bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
                 }
               }
             }
@@ -923,7 +986,7 @@ class MainActivity extends Activity with TypedActivity {
 
                         cleanTempFiles //todo
 
-                        Log.d(TAG, "Starting Asian Calculation" )
+                        /*Log.d(TAG, "Starting Asian Calculation" )
                         val f = future {
                           val startTime = System.nanoTime
                           val asianOV = lsm.calcAsianOptionValue(params, null)
@@ -946,15 +1009,15 @@ class MainActivity extends Activity with TypedActivity {
                         updateOutputText(cacheData.statusStr)
 
                         println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-                        Log.d(TAG, "Completed Asian Calculation" )
+                        Log.d(TAG, "Completed Asian Calculation" )*/
 
                         // 1.01 start service only when running LSM
-                        //Log.d(TAG, "Starting mcOptCal Service" )
-                        //intent = new Intent(MainActivity.this, classOf[mcOptCalService])
+                        Log.d(TAG, "Starting mcOptCal Service" )
+                        intent = new Intent(MainActivity.this, classOf[mcOptCalService])
 
-                        //Log.d(TAG, "Starting mcOptCal Service" )
-                        //startService(intent)
-                        //bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                        Log.d(TAG, "Starting mcOptCal Service" )
+                        startService(intent)
+                        bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
                       }
                     }
 

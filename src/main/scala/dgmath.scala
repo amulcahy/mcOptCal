@@ -775,8 +775,9 @@ object lsm {
     var x = 0.0D
     var y = 0.0D
     val pvDiscount = exp(-params.rate*params.expiry)
+    var abort = false
 
-    while (i < params.numPaths/2) {
+    while ((i < params.numPaths/2) && !abort) {
       var s1 = params.stock
       var s2 = params.stock
       var avgX = 0.0D
@@ -817,6 +818,21 @@ object lsm {
       val deltaY = y - mean
       mean += deltaY/n
       m2 += deltaY*(y - mean)
+
+      // AndroidSpecificCode
+      if (callerService != null)
+        callerService ! lsmStatusReport(params.numPaths - i*2, params.numPaths)
+      else
+        Log.d(TAG, "calcAsianOptionValue step="+(params.numPaths - i*2)+" of "+params.numPaths)
+      receiveWithin(1) {
+        case TIMEOUT => { }
+        case CalcStopLSM => {
+          println("CalcStopLSM" ) // Log.d(TAG, "CalcStopLSM" )
+          abort = true // 1.01
+          callerService ! lsmAbortReport
+          exit()
+        }
+      } // AndroidSpecificCode END */
 
       i += 1
     }
@@ -1062,7 +1078,7 @@ object lsm {
     val asianPayoffFnStr = "SAVG-K"
     val asianPayoffFn = lsm.EqnParsers.parseEval(asianPayoffFnStr)
     // hull val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 100000, 1, 100, 50.0, 50.0, 0.10, 0.40, 50, 50000, 1 ) 
-    val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 10000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1 ) 
+    val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 1000000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1 ) 
     asianSimulate(asianTest_01)
     /*val test_01 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
     val test_02 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.20 ) 
