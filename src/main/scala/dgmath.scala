@@ -637,7 +637,7 @@ object lsm {
     (optionValue, stdErr)
   }
 
-  val asianOptionValueStdErr = (params: LsmParams, priceMatrix: Matrix, maxMinAvgMatrix: Matrix) => {
+  /*val asianOptionValueStdErr = (params: LsmParams, priceMatrix: Matrix, maxMinAvgMatrix: Matrix) => {
     val m = params.numPaths
     val pvArray = Array.ofDim[Double](m)
 
@@ -666,7 +666,7 @@ object lsm {
       prettyPrint(pvArray)
     }
     (optionValue, stdErr)
-  }
+  }*/
 
 
 
@@ -690,14 +690,15 @@ object lsm {
     var step = initStep
     var newCFMatrix = cfMatrix
     var abort = false // 1.01
+    val msg = "LSM recuseCF step"
     while ((step > 0) && !abort) { // 1.01
       if (step%params.uiUpdateInterval == 0) {
         // AndroidSpecificCode
         if (callerService != null)
-          callerService ! lsmStatusReport(step, params.numSteps)
+          callerService ! lsmStatusReport(step, params.numSteps, msg)
         else
-          Log.d(TAG, "recurseCF step="+step )
-        println("recurseCF step="+step )
+          Log.d(TAG, msg+" ="+step+" of "+params.numSteps)
+        println(msg+" ="+step+" of "+params.numSteps)
         receiveWithin(1) {
           case TIMEOUT => { }
           case CalcStopLSM => {
@@ -776,8 +777,10 @@ object lsm {
     var y = 0.0D
     val pvDiscount = exp(-params.rate*params.expiry)
     var abort = false
+    val msg = "calcAsianOptionValue Path"
 
     while ((i < params.numPaths/2) && !abort) {
+      var startTime = System.currentTimeMillis
       var s1 = params.stock
       var s2 = params.stock
       var avgX = 0.0D
@@ -793,6 +796,25 @@ object lsm {
         avgY = avgY + s2/params.numSteps
 
         j += 1
+
+        // AndroidSpecificCode
+        if (System.currentTimeMillis - startTime > 10) {
+          startTime = System.currentTimeMillis
+          if (callerService != null)
+            callerService ! lsmStatusReport(params.numPaths - i*2, params.numPaths, msg)
+          else
+            Log.d(TAG, msg+" ="+(params.numPaths - i*2)+" of "+params.numPaths)
+          receiveWithin(1) {
+            case TIMEOUT => { }
+            case CalcStopLSM => {
+              println("CalcStopMC" )
+              abort = true
+              callerService ! lsmAbortReport
+              exit()
+            }
+          }
+        } // AndroidSpecificCode END */
+
       }
 
       val payOffX = params.payoffFn(0.0D, avgX, params)
@@ -819,20 +841,6 @@ object lsm {
       mean += deltaY/n
       m2 += deltaY*(y - mean)
 
-      // AndroidSpecificCode
-      if (callerService != null)
-        callerService ! lsmStatusReport(params.numPaths - i*2, params.numPaths)
-      else
-        Log.d(TAG, "calcAsianOptionValue step="+(params.numPaths - i*2)+" of "+params.numPaths)
-      receiveWithin(1) {
-        case TIMEOUT => { }
-        case CalcStopLSM => {
-          println("CalcStopLSM" ) // Log.d(TAG, "CalcStopLSM" )
-          abort = true // 1.01
-          callerService ! lsmAbortReport
-          exit()
-        }
-      } // AndroidSpecificCode END */
 
       i += 1
     }

@@ -18,17 +18,19 @@ Androidサービスを利用することで、別のアクティビティをフ�
 BS\n
 オプション・パラメーターを入力、ブラック-ショールズ方程式で、ヨーロピアンオプション価格を計算。\n
 \n
+ASIAN\n
+オプション・パラメーターを入力、最小二乗モンテカルロ法で、アジアン・オプション価格を計算。\n
+\n
 LSM\n
 オプション・パラメーターを入力、最小二乗モンテカルロ法で、アメリカン・バミューダンオプション価格を計算。\n
 \n
 パラメーター\n
-Payoff Function: ペイオフ関数\n
-  例:  K-S  （プット・オプション）、  S-K  （コール・オプション）
-Current Stock Price (S0): 原資産価格\n
-Exercise / Strike Price (K): 行使価格\n
+Payoff Function: ペイオフ関数、例:  K-S  （プット・オプション）、  S-K  （コール・オプション）
+Current Price (S0): 原資産価格\n
+Exercise Price (K): 行使価格\n
 Annual Risk Free Rate (R): 短期金利\n
 Volatility \u03C3 (V): ボラティリティ\n
-Time to Expiration in Years (T): 満期期間（年）\n
+Years to Expiry (T): 満期期間（年）\n
 numPaths: モンテカルロシミュレーションのパス数。値が大きすぎれば、計算時に、端末の動作が遅くなる場合がある。\n
 numSteps: 1年の行使ステップ数\n
 \n

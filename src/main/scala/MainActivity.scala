@@ -58,7 +58,7 @@ case class CalcStartLSM(params: LSMCalcParams)
 case class CalcStartAsianMC(params: LSMCalcParams)
 case class mcOptCalServiceAsianResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class mcOptCalServiceLSMResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
-case class lsmStatusReport(step: Int, numSteps: Int)
+case class lsmStatusReport(step: Int, numSteps: Int, msg: String)
 case class lsmAbortReport
 case object CalcStopLSM
 
@@ -105,7 +105,10 @@ class mcOptCalService extends Service with Actor {
   val contentTitle: CharSequence = "mcOptCalService"
   val ns: String = Context.NOTIFICATION_SERVICE
 
-  var notification: Notification = null
+  val icon: Int = R.drawable.logo
+  val tickerText: CharSequence = "Monte Carlo Service Started"
+  val when: Long = System.currentTimeMillis()
+  var notification: Notification = new Notification(icon, tickerText, when)
   var calc: Calc = null
   var working: Boolean = false
   var calcRunning = false
@@ -139,10 +142,10 @@ class mcOptCalService extends Service with Actor {
 
     val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
 
-    val icon: Int = R.drawable.logo
-    val tickerText: CharSequence = "Monte Carlo Service Started"
-    val when: Long = System.currentTimeMillis()
-    notification = new Notification(icon, tickerText, when)
+    //val icon: Int = R.drawable.logo
+    //val tickerText: CharSequence = "Monte Carlo Service Started"
+    //val when: Long = System.currentTimeMillis()
+    //notification = new Notification(icon, tickerText, when)
 
     val context: Context = getApplicationContext()
     val notificationIntent = new Intent(this, classOf[MainActivity])
@@ -232,17 +235,20 @@ class mcOptCalService extends Service with Actor {
           mBinder.mListener.reportComplete(calcStr)
           calcRunning = false
         }
-        case lsmStatusReport(step, numSteps) => {
+        case lsmStatusReport(step, numSteps, msg) => {
           val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
           val context: Context = getApplicationContext()
           val notificationIntent = new Intent(this, classOf[MainActivity])
           val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
           progressVal = 100 - step*100/numSteps
-          notification.setLatestEventInfo(context, contentTitle, "recurseCF step="+step, contentIntent)
+          //notification.setLatestEventInfo(context, contentTitle, "recurseCF step="+step, contentIntent)
+          notification.setLatestEventInfo(context, contentTitle, msg+" = "+step+" of "+numSteps, contentIntent)
           mNM.notify(1, notification)
-          Log.d(TAG, "report(recurseCF step="+step )
-          mBinder.mListener.report("recurseCF step="+step)
+          //Log.d(TAG, "report(recurseCF step="+step)
+          Log.d(TAG, msg+" = "+step+" of "+numSteps)
+          //mBinder.mListener.report("recurseCF step="+step)
+          mBinder.mListener.report(msg+" = "+step+" of "+numSteps)
         }
         case lsmAbortReport => {
           val mNM: NotificationManager  = getSystemService(ns).asInstanceOf[NotificationManager]
@@ -456,6 +462,7 @@ class MainActivity extends Activity with TypedActivity {
 
   private var mService: mcOptCalService = _
   private var mBound: Boolean = false
+  private var isAsian: Boolean = false
 
   var mConnection: mcOptCalServiceConnection = new mcOptCalServiceConnection
 
@@ -541,8 +548,9 @@ class MainActivity extends Activity with TypedActivity {
           val newData = "\nStart LSM calculation:\n"+params
           cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
           updateOutputText(cacheData.statusStr)
-          //mService.startLSM(params)
-          mService.startAsianMC(params)
+          if (isAsian)
+            mService.startAsianMC(params)
+          mService.startLSM(params)
         }
       }
     }
@@ -907,6 +915,7 @@ class MainActivity extends Activity with TypedActivity {
                   Log.d(TAG, "Starting mcOptCal Service" )
                   startService(intent)
                   bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                  isAsian = true
                 }
               }
             }
@@ -1018,6 +1027,7 @@ class MainActivity extends Activity with TypedActivity {
                         Log.d(TAG, "Starting mcOptCal Service" )
                         startService(intent)
                         bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                        isAsian = true
                       }
                     }
 
@@ -1085,6 +1095,7 @@ class MainActivity extends Activity with TypedActivity {
                   Log.d(TAG, "Starting mcOptCal Service" )
                   startService(intent)
                   bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                  isAsian = false
                 }
               }
             }
@@ -1155,6 +1166,7 @@ class MainActivity extends Activity with TypedActivity {
                         Log.d(TAG, "Starting mcOptCal Service" )
                         startService(intent)
                         bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+                        isAsian = false
                       }
                     }
 
