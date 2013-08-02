@@ -33,7 +33,8 @@
 An App to calculate American and Bermudan option prices using the LSM (Least Squares Monte Carlo) method. European option prices can also be calculated using the Black Scholes formula. The option payoff function is user-definable. An android service is used to enable long running calculations to continue in the background while other activities are in the foreground.\n
 Note: if the parameters for the number of monte carlo simulation paths or time steps are set too large, the device responsiveness may slow down while the calculation is running.\n
 \n
-Web: http://dragongate-technologies.com\n
+Web:    http://dragongate-technologies.com \n
+Source: https://github.com/amulcahy/mcOptCal \n
 \n
 BS\n
 Input the option parameters and calculate the value of a European option using the Black Scholes formula.

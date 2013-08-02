@@ -30,7 +30,7 @@ import _root_.android.content
 import _root_.android.content.{ComponentName, Context, Intent, ServiceConnection, SharedPreferences}
 import _root_.android.graphics.{Bitmap, Canvas, Color, Paint}
 import _root_.android.graphics.drawable.Drawable
-import _root_.android.os.{Binder, Bundle, Handler, IBinder}
+import _root_.android.os.{Binder, Bundle, Debug, Handler, IBinder}
 import _root_.android.preference._
 import _root_.android.text.method.ScrollingMovementMethod
 import _root_.android.util.{AttributeSet, Log}
@@ -691,8 +691,16 @@ object lsm {
     var newCFMatrix = cfMatrix
     var abort = false // 1.01
     val msg = "LSM recuseCF step"
+    // AndroidSpecificCode
+    var startTime = System.currentTimeMillis
+    val uiUpdateInterval = params.uiUpdateInterval
+
+    // AndroidSpecificCode END */
     while ((step > 0) && !abort) { // 1.01
-      if (step%params.uiUpdateInterval == 0) {
+      // AndroidSpecificCode
+      if (System.currentTimeMillis - startTime > uiUpdateInterval) {
+        startTime = System.currentTimeMillis
+      //if (step%params.uiUpdateInterval == 0) {
         // AndroidSpecificCode
         if (callerService != null)
           callerService ! lsmStatusReport(step, params.numSteps, msg)
@@ -778,19 +786,26 @@ object lsm {
     val pvDiscount = exp(-params.rate*params.expiry)
     var abort = false
     val msg = "calcAsianOptionValue Path"
+    val payOffFn = (avg: Double) => params.payoffFn(0.0D, avg, params)
 
+    // AndroidSpecificCode
+    var startTime = System.currentTimeMillis
+    val uiUpdateInterval = params.uiUpdateInterval
+    // AndroidSpecificCode END */
+    //Debug.startMethodTracing("traceFile")
     while ((i < params.numPaths/2) && !abort) {
-      var startTime = System.currentTimeMillis
       var s1 = params.stock
       var s2 = params.stock
       var avgX = 0.0D
       var avgY = 0.0D
+      val exp_a = exp(a)
 
       var j = 1
       while (j < params.numSteps+1) {
         val dZ = rng.nextGaussian
-        s1 = s1*exp(a + b*dZ)
-        s2 = s2*exp(a - b*dZ) // antithetic path
+        val exp_bdZ = exp(b*dZ)
+        s1 = s1*exp_a*exp_bdZ
+        s2 = s2*exp_a/exp_bdZ // antithetic path
 
         avgX = avgX + s1/params.numSteps
         avgY = avgY + s2/params.numSteps
@@ -798,7 +813,7 @@ object lsm {
         j += 1
 
         // AndroidSpecificCode
-        if (System.currentTimeMillis - startTime > 10) {
+        if (System.currentTimeMillis - startTime > uiUpdateInterval) {
           startTime = System.currentTimeMillis
           if (callerService != null)
             callerService ! lsmStatusReport(params.numPaths - i*2, params.numPaths, msg)
@@ -817,13 +832,15 @@ object lsm {
 
       }
 
-      val payOffX = params.payoffFn(0.0D, avgX, params)
+      //val payOffX = params.payoffFn(0.0D, avgX, params)
+      val payOffX = payOffFn(avgX)
       if (payOffX > 0)
         x = payOffX*pvDiscount
       else
         x = 0.0D
 
-      val payOffY = params.payoffFn(0.0D, avgY, params)
+      //val payOffY = params.payoffFn(0.0D, avgY, params)
+      val payOffY = payOffFn(avgY)
       if (payOffY > 0)
         y = payOffY*pvDiscount
       else
@@ -849,6 +866,8 @@ object lsm {
     val variance = m2/(n-1)
     val sampStdDev = sqrt(variance)
     val stdErr = sampStdDev/sqrt(params.numPaths)
+    //Debug.stopMethodTracing()
+
     (optionValue, stdErr)
   }
 

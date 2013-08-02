@@ -13,7 +13,8 @@
 Androidサービスを利用することで、別のアクティビティをフォールグラウンドで実行している間に、長い継続計算がバックグラウンドで行われる。\n
 注意：モンテカルロシミュレーションのパス数、行使ステップ数のパラメーターが大きすぎれば、計算中の端末動作が遅くなる場合がある。\n
 \n
-ウェブ： http://dragongate-technologies.com\n
+ウェブ： http://dragongate-technologies.com \n
+ソース： https://github.com/amulcahy/mcOptCal \n
 \n
 BS\n
 オプション・パラメーターを入力、ブラック-ショールズ方程式で、ヨーロピアンオプション価格を計算。\n

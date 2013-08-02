@@ -381,7 +381,7 @@ case object StateData {
     PreferenceManager.getDefaultSharedPreferences(context).getString("volatility", "0.20").toDouble,
     PreferenceManager.getDefaultSharedPreferences(context).getString("numSamples", "50").toInt,
     PreferenceManager.getDefaultSharedPreferences(context).getString("threshold", "50000").toInt,
-    PreferenceManager.getDefaultSharedPreferences(context).getString("uiUpdateInterval", "1").toInt
+    PreferenceManager.getDefaultSharedPreferences(context).getString("uiUpdateInterval", "200").toInt
   )
 
 }
@@ -1184,8 +1184,6 @@ class MainActivity extends Activity with TypedActivity {
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
-              val numSamples = textEntryView.findViewById(R.id.edittext7).asInstanceOf[EditText].getText().toString.toInt
-              val threshold = textEntryView.findViewById(R.id.edittext8).asInstanceOf[EditText].getText().toString.toInt
               val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
 
               val newStateData = StateData(
@@ -1198,8 +1196,8 @@ class MainActivity extends Activity with TypedActivity {
                 stateData.exercisePrice,
                 stateData.riskFreeRate,
                 stateData.volatility,
-                numSamples,
-                threshold,
+                stateData.numSamples,
+                stateData.threshold,
                 uiUpdateInterval )
               newStateData.saveToSharedPreferences(getApplicationContext)
 
@@ -1282,8 +1280,6 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
       }
       case SettingsDlg => {
-        d.findViewById(R.id.edittext7).asInstanceOf[EditText].setText(stateData.numSamples.toString)
-        d.findViewById(R.id.edittext8).asInstanceOf[EditText].setText(stateData.threshold.toString)
         d.findViewById(R.id.edittext9).asInstanceOf[EditText].setText(stateData.uiUpdateInterval.toString)
       }
       case HelpDlg => {
