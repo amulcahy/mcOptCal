@@ -696,7 +696,7 @@ object lsm {
     var step = initStep
     var newCFMatrix = cfMatrix
     var abort = false // 1.01
-    val msg = "LSM recuseCF step"
+    val msg = "LSM recurseCF step"
     // AndroidSpecificCode
     var startTime = System.currentTimeMillis
     val uiUpdateInterval = params.uiUpdateInterval
@@ -789,7 +789,7 @@ object lsm {
     var y = 0.0D
     val pvDiscount = exp(-params.rate*params.expiry)
     var abort = false
-    val msg = "calcAsianOptionValue Path"
+    val msg = "calcAsianOptionValue path"
     val payOffFn = (avg: Double) => params.payoffFn(0.0D, avg, params)
     val exp_a = exp(a)
 

@@ -243,12 +243,9 @@ class mcOptCalService extends Service with Actor {
           val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
           progressVal = 100 - step*100/numSteps
-          //notification.setLatestEventInfo(context, contentTitle, "recurseCF step="+step, contentIntent)
           notification.setLatestEventInfo(context, contentTitle, msg+" = "+step+" of "+numSteps, contentIntent)
           mNM.notify(1, notification)
-          //Log.d(TAG, "report(recurseCF step="+step)
           Log.d(TAG, msg+" = "+step+" of "+numSteps)
-          //mBinder.mListener.report("recurseCF step="+step)
           mBinder.mListener.report(msg+" = "+step+" of "+numSteps)
         }
         case lsmAbortReport => {
