@@ -22,6 +22,38 @@
       <TableRow
 	>
 	<TextView
+	  android:id="@+id/textview7"
+	  android:text="@string/numsamples"
+	  android:textSize="16sp"
+	  android:layout_span="1" 
+	  />
+	<EditText 
+	  android:id="@+id/edittext7" 
+	  android:inputType="number"
+	  android:text="18" 
+	  android:textSize="16sp"
+	  android:layout_span="1" 
+	  />
+      </TableRow>
+      <TableRow
+	>
+	<TextView
+	  android:id="@+id/textview8"
+	  android:text="@string/threshold"
+	  android:textSize="16sp"
+	  android:layout_span="1" 
+	  />
+	<EditText 
+	  android:id="@+id/edittext8" 
+	  android:inputType="number"
+	  android:text="50000" 
+	  android:textSize="16sp"
+	  android:layout_span="1" 
+	  />
+      </TableRow>
+      <TableRow
+	>
+	<TextView
 	  android:id="@+id/textview9"
 	  android:text="@string/uiupdateinterval"
 	  android:textSize="16sp"

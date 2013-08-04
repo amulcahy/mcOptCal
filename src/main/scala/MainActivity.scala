@@ -86,7 +86,7 @@ class Calc extends Actor {
           Log.d(TAG, "CalcStartAsianMC" )
           callerService = lsmCalcParams.callerService
 
-          //
+          /* JNI version
           println("calling native calcAsianOptionValueJNI")
           val startTime = System.nanoTime
           val lsmJNI = new lsm
@@ -95,7 +95,7 @@ class Calc extends Actor {
           println("calcAsianOptionValueJNI = "+asianOVJNI)
           callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
 
-          /*
+          // Scala version
           val startTime = System.nanoTime
           val asianOV = lsm.calcAsianOptionValue(lsmCalcParams.params, lsmCalcParams.callerService)
           val endTime = System.nanoTime
@@ -132,7 +132,8 @@ class mcOptCalService extends Service with Actor {
   var calcComplete = false
   var progressState = false
   var progressVal = 0
-  var priceAry: Array[Array[Double]] = Array.fill(10, 10)(1.0d) //todo
+  //var priceAry: Array[Array[Double]] = Array.fill(10, 10)(1.0d) //todo
+  var priceAry: Array[Array[Double]] = null //todo
 
   class mcOptCalServiceBinder extends Binder {
     var mListener: BoundServiceListener = null
@@ -195,7 +196,7 @@ class mcOptCalService extends Service with Actor {
           val notificationIntent = new Intent(this, classOf[MainActivity])
           val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
-          calcStr = "LSM Option Value = "+"% 6.4f".format(lsmOV._1)+"  ( s.e. "+"%.4f".format(lsmOV._2)+" ) [ "+"%.3f".format(runTime.toDouble/1000)+"sec ]"
+          calcStr = "MC Option Value = "+"% 6.4f".format(lsmOV._1)+"  ( s.e. "+"%.4f".format(lsmOV._2)+" ) [ "+"%.3f".format(runTime.toDouble/1000)+"sec ]\n"
           statusStr = calcStr
           calcComplete = true
           progressState = false
@@ -224,23 +225,11 @@ class mcOptCalService extends Service with Actor {
           val notificationIntent = new Intent(this, classOf[MainActivity])
           val contentIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
-          calcStr = "Asian Option Value = "+"% 6.4f".format(asianOV._1)+"  ( s.e. "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format(runTime.toDouble/1000)+"sec ]"
+          calcStr = "Asian Option Value = "+"% 6.4f".format(asianOV._1)+"  ( s.e. "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format(runTime.toDouble/1000)+"sec ]\n"
           statusStr = calcStr
           calcComplete = true
           progressState = false
           progressVal = 100
-          //val priceAryRows = lsmOV._3.length
-          //val priceAryCols = lsmOV._3(0).length
-          //priceAry = Array.ofDim[Double](priceAryRows, priceAryCols)
-          //var i = 0
-          /*while (i < priceAryRows) {
-            var j = 0
-            while (j < priceAryCols) {
-              priceAry(i)(j) = lsmOV._3(i)(j)
-              j += 1
-            }
-            i += 1
-          }*/
           notification.setLatestEventInfo(context, contentTitle, calcStr, contentIntent)
           mNM.notify(1, notification)
           Log.d(TAG, "reportComplete("+calcStr )
@@ -517,7 +506,10 @@ class MainActivity extends Activity with TypedActivity {
                     if (mService.calcComplete) {
                       Log.e(TAG, "mService.calcComplete")
                       cleanTempFiles //todo
-                      cacheData = new CacheData(mService.priceAry, cacheData.statusStr+"\n"+mService.statusStr)
+                      if (mService.priceAry != null)
+                        cacheData = new CacheData(mService.priceAry, cacheData.statusStr+"\n"+mService.statusStr)
+                      else
+                        cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+"\n"+mService.statusStr)
                       CacheData.dump(cacheData, getApplicationContext)
                       mRenderer.init4(cacheData.samplePriceArray)
                       mGLSurfaceViewB.requestRender()
@@ -565,7 +557,7 @@ class MainActivity extends Activity with TypedActivity {
 
           progress1.setVisibility(View.VISIBLE)
           progress1.setProgress(0)
-          val newData = "\nStart LSM calculation:\n"+params
+          val newData = "\nStart MC calculation:\n"+params
           cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
           updateOutputText(cacheData.statusStr)
           if (isAsian)
@@ -903,41 +895,6 @@ class MainActivity extends Activity with TypedActivity {
 
                   cleanTempFiles //todo
 
-                  /*Log.d(TAG, "Starting Asian Calculation" )
-                  val f = future {
-                    val startTime = System.nanoTime
-                    val asianOV = lsm.calcAsianOptionValue(params, null)
-                    val endTime = System.nanoTime
-                    (asianOV, startTime, endTime)
-                  }
-                  while(!f.isSet) {
-                    Log.d(TAG, "実行中" )
-                    Thread.sleep(1*1000)
-                  }
-                  val asianOpResult = f()
-                  val asianOV = asianOpResult._1
-                  val startTime = asianOpResult._2
-                  val endTime = asianOpResult._3
-
-                  val strB = new StringBuilder
-                  strB.append("\nStart ASIAN calculation:\n[\n")
-                  strB.append("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-
-                  cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+strB.result)
-                  updateOutputText(cacheData.statusStr)
-
-                  println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-                  Log.d(TAG, "Completed Asian Calculation" )*/
-
-          /*println("calling native calcAsianOptionValueJNI")
-          println("-- start --")
-          val startTime = System.nanoTime
-          val lsmJNI = new lsm
-          val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(params)
-          val endTime = System.nanoTime
-          println("calcAsianOptionValueJNI = "+asianOVJNI)
-          println("--  end  --")*/
-
                   // 1.01 start service only when running LSM
                   Log.d(TAG, "Starting mcOptCal Service" )
                   intent = new Intent(MainActivity.this, classOf[mcOptCalService])
@@ -1024,40 +981,6 @@ class MainActivity extends Activity with TypedActivity {
                           getApplicationContext.getExternalFilesDir(null) )
 
                         cleanTempFiles //todo
-
-                        /*Log.d(TAG, "Starting Asian Calculation" )
-                        val f = future {
-                          val startTime = System.nanoTime
-                          val asianOV = lsm.calcAsianOptionValue(params, null)
-                          val endTime = System.nanoTime
-                          (asianOV, startTime, endTime)
-                        }
-                        while(!f.isSet) {
-                          Log.d(TAG, "実行中" )
-                          Thread.sleep(1*1000)
-                        }
-                        val asianOpResult = f()
-                        val asianOV = asianOpResult._1
-                        val startTime = asianOpResult._2
-                        val endTime = asianOpResult._3
-
-                        val strB = new StringBuilder
-                        strB.append("\nStart ASIAN calculation:\n[\n")
-                        strB.append("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-                        cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+strB.result)
-                        updateOutputText(cacheData.statusStr)
-
-                        println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
-                        Log.d(TAG, "Completed Asian Calculation" )*/
-
-          /*println("calling native calcAsianOptionValueJNI")
-          println("-- start --")
-          val startTime = System.nanoTime
-          val lsmJNI = new lsm
-          val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(params)
-          val endTime = System.nanoTime
-          println("calcAsianOptionValueJNI = "+asianOVJNI)
-          println("--  end  --")*/
 
                         // 1.01 start service only when running LSM
                         Log.d(TAG, "Starting mcOptCal Service" )

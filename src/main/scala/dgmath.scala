@@ -414,8 +414,6 @@ class lsm {
 
   @native def calcAsianOptionValueJNI(params: LsmParams, rng: Random): Array[Double]
 
-  //@native def testJNI(a: Integer, params: LsmParams, b: Double): Double
-
 }
 
 object lsm {
@@ -795,11 +793,6 @@ object lsm {
     val payOffFn = (avg: Double) => params.payoffFn(0.0D, avg, params)
     val exp_a = exp(a)
 
-    println("a = "+a)
-    println("b = "+b)
-    println("pvDiscount = "+pvDiscount)
-    println("exp_a = "+exp_a)
-    
     // AndroidSpecificCode
     var startTime = System.currentTimeMillis
     val uiUpdateInterval = params.uiUpdateInterval
@@ -843,14 +836,12 @@ object lsm {
 
       }
 
-      //val payOffX = params.payoffFn(0.0D, avgX, params)
       val payOffX = payOffFn(avgX)
       if (payOffX > 0)
         x = payOffX*pvDiscount
       else
         x = 0.0D
 
-      //val payOffY = params.payoffFn(0.0D, avgY, params)
       val payOffY = payOffFn(avgY)
       if (payOffY > 0)
         y = payOffY*pvDiscount

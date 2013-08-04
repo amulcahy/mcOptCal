@@ -16,17 +16,21 @@ Androidサービスを利用することで、別のアクティビティをフ�
 ウェブ： http://dragongate-technologies.com \n
 ソース： https://github.com/amulcahy/mcOptCal \n
 \n
+v1.03 - アジアン・オプション機能追加。\n
+\n
 BS\n
 オプション・パラメーターを入力、ブラック-ショールズ方程式で、ヨーロピアンオプション価格を計算。\n
 \n
 ASIAN\n
-オプション・パラメーターを入力、最小二乗モンテカルロ法で、アジアン・オプション価格を計算。\n
+オプション・パラメーターを入力、モンテカルロ法で、アジアン・オプション価格を計算。\n
 \n
 LSM\n
 オプション・パラメーターを入力、最小二乗モンテカルロ法で、アメリカン・バミューダンオプション価格を計算。\n
 \n
 パラメーター\n
-Payoff Function: ペイオフ関数、例:  K-S  （プット・オプション）、  S-K  （コール・オプション）
+Payoff Function: ペイオフ関数、例:  K-S  （プット・オプション）、  S-K  （コール・オプション）、  SAVG-K  （アジアン・コール・オプション）\n
+Expiry Price (S) * 最小二乗モンテカルロ法で計算 *\n
+Arithmetic Average (SAVG) * モンテカルロ法で計算 *\n
 Current Price (S0): 原資産価格\n
 Exercise Price (K): 行使価格\n
 Annual Risk Free Rate (R): 短期金利\n
@@ -42,7 +46,6 @@ numSteps: 1年の行使ステップ数\n
 設定を変更。\n
 　numSamples: グラフのパスの数。 大きすぎる値は、エラーを引き起こす可能性がある。\n
 　Threshold: このサイズより大きなオブジェクトは、ＳＤカードでキャッシュされる。 最適値は、端末のメモリー容量などに依存する。\n
-　numSamples: グラフのパス数。 大きすぎる値は、エラーを発生させる可能性がある。\n
 　uiUpdateInterval: LSM計算時のUIアップデート間隔\n
 \n
 CLR\n
