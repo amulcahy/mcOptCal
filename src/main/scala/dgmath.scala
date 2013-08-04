@@ -410,6 +410,14 @@ case class LsmParams(
   }
 }
 
+class lsm {
+
+  @native def calcAsianOptionValueJNI(params: LsmParams, rng: Random): Array[Double]
+
+  //@native def testJNI(a: Integer, params: LsmParams, b: Double): Double
+
+}
+
 object lsm {
   type PayoffFn = (Double, Double, LsmParams) => Double
   import Matrix._
@@ -417,7 +425,7 @@ object lsm {
 
   private val DEBUG = false
 
-  private val rng: Random = new Random
+  val rng: Random = new Random
   private val sqr = (x: Double) => (x * x)
 
   /**
@@ -769,9 +777,7 @@ object lsm {
     (oVsE._1, oVsE._2, getPriceMatrixSample(params.numSamples, priceMatrix))
   }
 
-  val calcAsianOptionValue = (params: LsmParams, callerService: Actor) => {
-    Matrix.threshold = params.threshold
-
+  val calcAsianOptionValue: (LsmParams, Actor) => (Double, Double) = (params: LsmParams, callerService: Actor) => {
     assert( params.numPaths%2 == 0)
     val a = (params.rate -  sqr(params.volatility)*0.5)*params.dT
     val b = params.volatility*sqrt(params.dT)
@@ -787,7 +793,13 @@ object lsm {
     var abort = false
     val msg = "calcAsianOptionValue Path"
     val payOffFn = (avg: Double) => params.payoffFn(0.0D, avg, params)
+    val exp_a = exp(a)
 
+    println("a = "+a)
+    println("b = "+b)
+    println("pvDiscount = "+pvDiscount)
+    println("exp_a = "+exp_a)
+    
     // AndroidSpecificCode
     var startTime = System.currentTimeMillis
     val uiUpdateInterval = params.uiUpdateInterval
@@ -798,7 +810,6 @@ object lsm {
       var s2 = params.stock
       var avgX = 0.0D
       var avgY = 0.0D
-      val exp_a = exp(a)
 
       var j = 1
       while (j < params.numSteps+1) {
@@ -857,7 +868,6 @@ object lsm {
       val deltaY = y - mean
       mean += deltaY/n
       m2 += deltaY*(y - mean)
-
 
       i += 1
     }

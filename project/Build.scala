@@ -33,7 +33,7 @@ object AndroidBuild extends Build {
   lazy val main = Project (
     "mcOptCal",
     file("."),
-    settings = General.fullAndroidSettings
+    settings = General.fullAndroidSettings ++ AndroidNdk.settings
   )
 
 }

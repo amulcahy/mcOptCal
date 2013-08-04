@@ -49,6 +49,7 @@ import scala.math._
 
 import com.dragongate_technologies.glfuncplot._
 
+
 class LSMCalcParams(_params: LsmParams, _callerService: Actor) {
   val params = _params
   val callerService = _callerService
@@ -84,10 +85,21 @@ class Calc extends Actor {
         case CalcStartAsianMC(lsmCalcParams) => {
           Log.d(TAG, "CalcStartAsianMC" )
           callerService = lsmCalcParams.callerService
+
+          //
+          println("calling native calcAsianOptionValueJNI")
+          val startTime = System.nanoTime
+          val lsmJNI = new lsm
+          val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(lsmCalcParams.params, lsm.rng)
+          val endTime = System.nanoTime
+          println("calcAsianOptionValueJNI = "+asianOVJNI)
+          callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
+
+          /*
           val startTime = System.nanoTime
           val asianOV = lsm.calcAsianOptionValue(lsmCalcParams.params, lsmCalcParams.callerService)
           val endTime = System.nanoTime
-          callerService ! mcOptCalServiceAsianResult((asianOV._1, asianOV._2, null), ((endTime-startTime)/1e6).toLong)
+          callerService ! mcOptCalServiceAsianResult((asianOV._1, asianOV._2, null), ((endTime-startTime)/1e6).toLong) // */
         }
       }
     }
@@ -447,6 +459,14 @@ object CacheData {
 
 
 class MainActivity extends Activity with TypedActivity {
+
+  /** Load the native library where the native method
+  * is stored.
+  */
+  System.loadLibrary("mcOptCal-jni")
+
+  //@native def stringFromJNI(): String
+
   private val TAG: String = "MainActivity"
   private val ParametersDlg = 1
   private val SettingsDlg = 2
@@ -602,6 +622,7 @@ class MainActivity extends Activity with TypedActivity {
 
     btnClr.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
+          //println(stringFromJNI)
           cacheData = new CacheData(cacheData.samplePriceArray, "")
           updateOutputText(cacheData.statusStr)
         }
@@ -908,6 +929,15 @@ class MainActivity extends Activity with TypedActivity {
                   println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
                   Log.d(TAG, "Completed Asian Calculation" )*/
 
+          /*println("calling native calcAsianOptionValueJNI")
+          println("-- start --")
+          val startTime = System.nanoTime
+          val lsmJNI = new lsm
+          val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(params)
+          val endTime = System.nanoTime
+          println("calcAsianOptionValueJNI = "+asianOVJNI)
+          println("--  end  --")*/
+
                   // 1.01 start service only when running LSM
                   Log.d(TAG, "Starting mcOptCal Service" )
                   intent = new Intent(MainActivity.this, classOf[mcOptCalService])
@@ -1019,6 +1049,15 @@ class MainActivity extends Activity with TypedActivity {
 
                         println("asianOptionValue = "+"% 6.4f".format(asianOV._1)+"  ( "+"%.4f".format(asianOV._2)+" ) [ "+"%.3f".format((endTime-startTime)/1e9)+"sec ]")
                         Log.d(TAG, "Completed Asian Calculation" )*/
+
+          /*println("calling native calcAsianOptionValueJNI")
+          println("-- start --")
+          val startTime = System.nanoTime
+          val lsmJNI = new lsm
+          val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(params)
+          val endTime = System.nanoTime
+          println("calcAsianOptionValueJNI = "+asianOVJNI)
+          println("--  end  --")*/
 
                         // 1.01 start service only when running LSM
                         Log.d(TAG, "Starting mcOptCal Service" )
