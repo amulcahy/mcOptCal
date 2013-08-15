@@ -32,6 +32,7 @@
   <string name="scala_jni">Scala / JNI</string>
   <string name="scala">Scala</string>
   <string name="jni">JNI</string>
+  <string name="rng_seed">RNG Seed</string>
 
 <string name="help_content">
 \nmcOptCal\n

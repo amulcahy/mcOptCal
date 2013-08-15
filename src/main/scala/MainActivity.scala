@@ -56,7 +56,7 @@ class LSMCalcParams(_params: LsmParams, _callerService: Actor) {
 }
 
 case class CalcStartLSM(params: LSMCalcParams)
-case class CalcStartAsianMC(params: LSMCalcParams, scala_jni: String)
+case class CalcStartAsianMC(params: LSMCalcParams, jniFlag: Boolean)
 case class mcOptCalServiceAsianResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class mcOptCalServiceLSMResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class lsmStatusReport(step: Int, numSteps: Int, msg: String)
@@ -82,18 +82,19 @@ class Calc extends Actor {
           //Debug.stopMethodTracing()
           callerService ! mcOptCalServiceLSMResult(lsmOV, ((endTime-startTime)/1e6).toLong)
         }
-        case CalcStartAsianMC(lsmCalcParams, scala_jni) => {
+        case CalcStartAsianMC(lsmCalcParams, jniFlag) => {
           Log.d(TAG, "CalcStartAsianMC" )
           callerService = lsmCalcParams.callerService
 
-          if (scala_jni == "JNI") {
+          if (jniFlag) {
             // JNI version
-            println("calling native calcAsianOptionValueJNI")
+            Log.d("ASIAN", "calling native calcAsianOptionValueJNI")
             val startTime = System.nanoTime
             val lsmJNI = new lsm
+            Log.d("ASIAN", "lsmCalcParams.params"+lsmCalcParams.params)
             val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(lsmCalcParams.params, lsm.rng)
             val endTime = System.nanoTime
-            println("calcAsianOptionValueJNI = "+asianOVJNI)
+            Log.d("ASIAN", "calcAsianOptionValueJNI = "+asianOVJNI)
             callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
           } else {
             // Scala version
@@ -274,7 +275,7 @@ class mcOptCalService extends Service with Actor {
     }
   }
 
-  def startAsianMC(params: LsmParams, scala_jni: String) { // todo need asianParams?
+  def startAsianMC(params: LsmParams, jniFlag: Boolean) { // todo need asianParams?
     Log.d(TAG, "mcOptCalService.startAsianMC" )
     if (!calcRunning) {
       working = true
@@ -293,7 +294,7 @@ class mcOptCalService extends Service with Actor {
       mNM.notify(1, notification)
 
       val lsmCalcParams = new LSMCalcParams(params, this)
-      calc ! CalcStartAsianMC(lsmCalcParams, scala_jni) //todo
+      calc ! CalcStartAsianMC(lsmCalcParams, jniFlag) //todo
     }
   }
 
@@ -347,7 +348,9 @@ case class StateData(
   volatility: Double,
   numSamples: Int,
   threshold: Int,
-  uiUpdateInterval: Int
+  uiUpdateInterval: Int,
+  jniFlag: Boolean,
+  rngSeed: Integer
   ) {
 
   def saveToSharedPreferences(context: Context) {
@@ -364,6 +367,8 @@ case class StateData(
     prefsEdit.putString("numSamples", numSamples.toString).commit()
     prefsEdit.putString("threshold", threshold.toString).commit()
     prefsEdit.putString("uiUpdateInterval", uiUpdateInterval.toString).commit()
+    prefsEdit.putString("jniFlag", jniFlag.toString).commit()
+    prefsEdit.putString("rngSeed", rngSeed.toString).commit()
   }
 
 }
@@ -381,7 +386,9 @@ case object StateData {
     PreferenceManager.getDefaultSharedPreferences(context).getString("volatility", "0.20").toDouble,
     PreferenceManager.getDefaultSharedPreferences(context).getString("numSamples", "50").toInt,
     PreferenceManager.getDefaultSharedPreferences(context).getString("threshold", "50000").toInt,
-    PreferenceManager.getDefaultSharedPreferences(context).getString("uiUpdateInterval", "200").toInt
+    PreferenceManager.getDefaultSharedPreferences(context).getString("uiUpdateInterval", "200").toInt,
+    PreferenceManager.getDefaultSharedPreferences(context).getString("jniFlag", "false").toBoolean,
+    PreferenceManager.getDefaultSharedPreferences(context).getString("rngSeed", "1").toInt
   )
 
 }
@@ -467,7 +474,7 @@ class MainActivity extends Activity with TypedActivity {
   var calc: Calc = null
   var cacheData: CacheData = _
   var funcAry: Array[Array[Double]] = Array.fill(10, 10)(0d) //todo
-  var scala_jni = "Scala"
+  //var scala_jni = "Scala"
 
   private var mService: mcOptCalService = _
   private var mBound: Boolean = false
@@ -552,6 +559,7 @@ class MainActivity extends Activity with TypedActivity {
             stateData.numSamples,
             stateData.threshold,
             stateData.uiUpdateInterval,
+            stateData.rngSeed,
             getApplicationContext.getExternalFilesDir(null)
             )
 
@@ -561,7 +569,7 @@ class MainActivity extends Activity with TypedActivity {
           cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
           updateOutputText(cacheData.statusStr)
           if (isAsian)
-            mService.startAsianMC(params, scala_jni)
+            mService.startAsianMC(params, stateData.jniFlag)
           mService.startLSM(params)
         }
       }
@@ -727,7 +735,6 @@ class MainActivity extends Activity with TypedActivity {
   }
 
   override protected def onCreateDialog(id: Int): Dialog = {
-    val stateData = StateData.restoreFromPreferences(getApplicationContext)
     val factory = LayoutInflater.from(this)
     id match {
       case ParametersDlg => {
@@ -745,7 +752,6 @@ class MainActivity extends Activity with TypedActivity {
               val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
 
               val stateData = StateData.restoreFromPreferences(getApplicationContext)
-
               val newStateData = StateData(
                 stateData.payoffFnStr,
                 stateData.isPut,
@@ -758,7 +764,9 @@ class MainActivity extends Activity with TypedActivity {
                 volatility,
                 stateData.numSamples,
                 stateData.threshold,
-                stateData.uiUpdateInterval )
+                stateData.uiUpdateInterval,
+                stateData.jniFlag,
+                stateData.rngSeed )
               newStateData.saveToSharedPreferences(getApplicationContext)
 
               val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
@@ -782,6 +790,7 @@ class MainActivity extends Activity with TypedActivity {
                 stateData.numSamples,
                 stateData.threshold,
                 stateData.uiUpdateInterval,
+                stateData.rngSeed,
                 getApplicationContext.getExternalFilesDir(null) )
 
               val strB = new StringBuilder
@@ -855,6 +864,7 @@ class MainActivity extends Activity with TypedActivity {
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                   //TODO
+                  val stateData = StateData.restoreFromPreferences(getApplicationContext)
                   val newStateData = StateData(
                     payoffFnStr,
                     true,
@@ -867,7 +877,9 @@ class MainActivity extends Activity with TypedActivity {
                     volatility,
                     stateData.numSamples,
                     stateData.threshold,
-                    stateData.uiUpdateInterval )
+                    stateData.uiUpdateInterval,
+                    stateData.jniFlag,
+                    stateData.rngSeed )
                   newStateData.saveToSharedPreferences(getApplicationContext)
 
                   val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
@@ -891,6 +903,7 @@ class MainActivity extends Activity with TypedActivity {
                     newStateData.numSamples,
                     newStateData.threshold,
                     newStateData.uiUpdateInterval,
+                    stateData.rngSeed,
                     getApplicationContext.getExternalFilesDir(null) )
 
                   cleanTempFiles //todo
@@ -942,6 +955,7 @@ class MainActivity extends Activity with TypedActivity {
                         textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                         //TODO
+                        val stateData = StateData.restoreFromPreferences(getApplicationContext)
                         val newStateData = StateData(
                           payoffFnStr,
                           true,
@@ -954,7 +968,9 @@ class MainActivity extends Activity with TypedActivity {
                           volatility,
                           stateData.numSamples,
                           stateData.threshold,
-                          stateData.uiUpdateInterval )
+                          stateData.uiUpdateInterval,
+                          stateData.jniFlag,
+                          stateData.rngSeed )
                         newStateData.saveToSharedPreferences(getApplicationContext)
 
                         val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
@@ -978,6 +994,7 @@ class MainActivity extends Activity with TypedActivity {
                           newStateData.numSamples,
                           newStateData.threshold,
                           newStateData.uiUpdateInterval,
+                          newStateData.rngSeed,
                           getApplicationContext.getExternalFilesDir(null) )
 
                         cleanTempFiles //todo
@@ -1026,6 +1043,7 @@ class MainActivity extends Activity with TypedActivity {
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                   //TODO
+                  val stateData = StateData.restoreFromPreferences(getApplicationContext)
                   val newStateData = StateData(
                     payoffFnStr,
                     true,
@@ -1038,7 +1056,9 @@ class MainActivity extends Activity with TypedActivity {
                     volatility,
                     stateData.numSamples,
                     stateData.threshold,
-                    stateData.uiUpdateInterval )
+                    stateData.uiUpdateInterval,
+                    stateData.jniFlag,
+                    stateData.rngSeed )
                   newStateData.saveToSharedPreferences(getApplicationContext)
 
                   val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
@@ -1097,6 +1117,7 @@ class MainActivity extends Activity with TypedActivity {
                         textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                         //TODO
+                        val stateData = StateData.restoreFromPreferences(getApplicationContext)
                         val newStateData = StateData(
                           payoffFnStr,
                           true,
@@ -1109,7 +1130,9 @@ class MainActivity extends Activity with TypedActivity {
                           volatility,
                           stateData.numSamples,
                           stateData.threshold,
-                          stateData.uiUpdateInterval )
+                          stateData.uiUpdateInterval,
+                          stateData.jniFlag,
+                          stateData.rngSeed )
                         newStateData.saveToSharedPreferences(getApplicationContext)
 
                         val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
@@ -1140,20 +1163,29 @@ class MainActivity extends Activity with TypedActivity {
       }
       case SettingsDlg => {
         val textEntryView = factory.inflate(R.layout.settings_dialog, null)
-        new AlertDialog.Builder(this)
+        val settingsDialog: AlertDialog = new AlertDialog.Builder(this)
         .setIcon(R.drawable.logo)
         .setTitle(R.string.settings)
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
-              scala_jni = {
+              val jniFlag = {
                 val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
-                ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
+                val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
+                Log.d(TAG, "scala_jni = "+scala_jni)
+                if (scala_jni == "JNI")
+                  true
+                else
+                  false
               }
-              println("scala_jni = "+scala_jni)
+              Log.d(TAG, "jniFlag = "+jniFlag)
 
               val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
 
+              val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
+              Log.d(TAG, "rngSeed = "+rngSeed)
+
+              val stateData = StateData.restoreFromPreferences(getApplicationContext)
               val newStateData = StateData(
                 stateData.payoffFnStr,
                 stateData.isPut,
@@ -1166,7 +1198,9 @@ class MainActivity extends Activity with TypedActivity {
                 stateData.volatility,
                 stateData.numSamples,
                 stateData.threshold,
-                uiUpdateInterval )
+                uiUpdateInterval, 
+                jniFlag,
+                rngSeed )
               newStateData.saveToSharedPreferences(getApplicationContext)
 
               val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
@@ -1187,6 +1221,57 @@ class MainActivity extends Activity with TypedActivity {
             }
           })
         .create()
+        settingsDialog.setOnShowListener(new DialogInterface.OnShowListener() {
+            override def onShow(dialog: DialogInterface) {
+              val b = settingsDialog.getButton(DialogInterface.BUTTON_POSITIVE)
+              b.setOnClickListener(new View.OnClickListener() {
+                  override def onClick(view: View) {
+                    val jniFlag = {
+                      val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
+                      val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
+                      Log.d(TAG, "scala_jni = "+scala_jni)
+                      if (scala_jni == "JNI")
+                        true
+                      else
+                        false
+                    }
+                    Log.d(TAG, "jniFlag = "+jniFlag)
+
+                    val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
+
+                    val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
+                    Log.d(TAG, "rngSeed = "+rngSeed)
+
+                    val stateData = StateData.restoreFromPreferences(getApplicationContext)
+                    val newStateData = StateData(
+                      stateData.payoffFnStr,
+                      stateData.isPut,
+                      stateData.numPaths,
+                      stateData.timeToExpiration,
+                      stateData.numSteps,
+                      stateData.stock,
+                      stateData.exercisePrice,
+                      stateData.riskFreeRate,
+                      stateData.volatility,
+                      stateData.numSamples,
+                      stateData.threshold,
+                      uiUpdateInterval, 
+                      jniFlag,
+                      rngSeed )
+                    newStateData.saveToSharedPreferences(getApplicationContext)
+
+                    val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                    prefs.edit().putString("stateDataSaved", "true").commit()
+
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+                    imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+                    dialog.dismiss()
+                  }
+                })
+            }
+          })
+        settingsDialog
       }
       case HelpDlg => {
         val textEntryView = factory.inflate(R.layout.help_dialog, null)
@@ -1218,9 +1303,9 @@ class MainActivity extends Activity with TypedActivity {
   }
 
   override protected def onPrepareDialog(id: Int, d: Dialog) {
-    val stateData = StateData.restoreFromPreferences(getApplicationContext)
     id match {
       case ParametersDlg => {
+        val stateData = StateData.restoreFromPreferences(getApplicationContext)
         d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
         d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
         d.findViewById(R.id.edittext3).asInstanceOf[EditText].setText(stateData.riskFreeRate.toString)
@@ -1228,6 +1313,7 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.edittext5).asInstanceOf[EditText].setText(stateData.timeToExpiration.toString)
       }
       case AsianParametersDlg => {
+        val stateData = StateData.restoreFromPreferences(getApplicationContext)
         d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)
         d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
         d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
@@ -1238,6 +1324,7 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
       }
       case LsmParametersDlg => {
+        val stateData = StateData.restoreFromPreferences(getApplicationContext)
         d.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setText(stateData.payoffFnStr)
         d.findViewById(R.id.edittext1).asInstanceOf[EditText].setText(stateData.stock.toString)
         d.findViewById(R.id.edittext2).asInstanceOf[EditText].setText(stateData.exercisePrice.toString)
@@ -1248,7 +1335,14 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
       }
       case SettingsDlg => {
+        val stateData = StateData.restoreFromPreferences(getApplicationContext)
+        val rBtnGr = d.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup]
+        if (stateData.jniFlag)
+          rBtnGr.check(R.id.radioBtnJNI)
+        else 
+          rBtnGr.check(R.id.radioBtnScala)
         d.findViewById(R.id.edittext9).asInstanceOf[EditText].setText(stateData.uiUpdateInterval.toString)
+        d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(stateData.rngSeed.toString)
       }
       case HelpDlg => {
       }

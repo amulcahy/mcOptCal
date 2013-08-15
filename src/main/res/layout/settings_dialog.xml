@@ -30,7 +30,7 @@
 	  android:orientation="horizontal"
 	  android:layout_span="1" 
 	  >
-	  <RadioButton android:id="@+id/radioRBtnScala"
+	  <RadioButton android:id="@+id/radioBtnScala"
 	    android:text="@string/scala" 
 	    android:textSize="12sp"
 	    android:checked="true" 
@@ -40,6 +40,22 @@
 	    android:textSize="12sp"
 	    />
 	</RadioGroup>
+      </TableRow>
+      <TableRow
+	>
+	<TextView
+	  android:id="@+id/textviewRngSeed"
+	  android:text="@string/rng_seed"
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+	<EditText 
+	  android:id="@+id/edittextRngSeed" 
+	  android:inputType="number"
+	  android:text="1.0" 
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
       </TableRow>
       <TableRow
 	>

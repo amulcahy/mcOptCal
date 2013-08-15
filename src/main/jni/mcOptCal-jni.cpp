@@ -24,6 +24,7 @@ class dgRandom
     double msrng();
     double bsmInvNormal(double u);
     double msrngInvNormGaussian();
+    void setSeed(long int s);
 };
 
 dgRandom::dgRandom(int _seed)
@@ -119,6 +120,12 @@ double dgRandom::msrngInvNormGaussian()
   return bsmInvNormal(msrng());
 }
 
+void dgRandom::setSeed(long int s)
+{
+   seed = s;
+}
+
+
 double payOffFn(double savg, double strike)
 {
   return (savg - strike);
@@ -139,9 +146,10 @@ mcResult calcAsianOptionValue(
     double rate,
     double volatility,
     int uiUpdateInterval,
-    double dT)
+    double dT,
+    long int seed)
 {
-  dgRandom dgrng(1);
+  dgRandom dgrng(seed);
 
   double a = (rate - volatility*volatility*0.5D)*dT;
   double b = volatility * sqrt(dT);
@@ -230,6 +238,8 @@ extern "C" {
   JNIEXPORT jdoubleArray JNICALL Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI
     (JNIEnv *env, jobject callingObject, jobject paramsObject, jobject rngObject)
     {
+      __android_log_print(ANDROID_LOG_INFO,"ASIAN","Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI");
+
       jclass paramsClass = env->GetObjectClass(paramsObject);
       jclass rngClass = env->GetObjectClass(rngObject);
       jmethodID rngId = env->GetMethodID(rngClass, "nextGaussian", "()D");
@@ -242,8 +252,10 @@ extern "C" {
       jfieldID rateId = env->GetFieldID(paramsClass, "rate", "D");
       jfieldID volatilityId = env->GetFieldID(paramsClass, "volatility", "D");
       jfieldID uiUpdateIntervalId = env->GetFieldID(paramsClass, "uiUpdateInterval", "I");
-
       jfieldID dTId = env->GetFieldID(paramsClass, "dT", "D");
+      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check1");
+      jfieldID seedId = env->GetFieldID(paramsClass, "rngSeed", "I");
+      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check2");
 
       int numPaths = env->GetIntField(paramsObject, numPathsId);
       int expiry = env->GetIntField(paramsObject, expiryId);
@@ -254,6 +266,9 @@ extern "C" {
       double volatility = env->GetDoubleField(paramsObject, volatilityId);
       int uiUpdateInterval = env->GetIntField(paramsObject, uiUpdateIntervalId);
       double dT = env->GetDoubleField(paramsObject, dTId);
+      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check3");
+      long int seed = env->GetIntField(paramsObject, seedId);
+      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check4");
 
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","dT= %lf \n", dT);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","seed = %d \n", seed);
@@ -267,7 +282,8 @@ extern "C" {
 	  rate,
 	  volatility,
 	  uiUpdateInterval,
-	  dT);
+	  dT,
+	  seed);
 
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","optionValue= %lf \n", optionValue);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","stdErr= %lf \n", stdErr);

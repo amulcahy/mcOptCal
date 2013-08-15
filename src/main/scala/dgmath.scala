@@ -454,6 +454,7 @@ object Matrix {
   * @param numSamples todo
   * @param threshold todo
   * @param uiUpdateInterval todo
+  * @param rngSeed todo
   * @param dataDir: File = new File("/home/anthony/scala_work/mcTempFiles/")
   * 
   * @note dT = expiry / numSteps
@@ -471,6 +472,7 @@ case class LsmParams(
   numSamples: Int,
   threshold: Int,
   uiUpdateInterval: Int,
+  rngSeed: Int,
   dataDir: File = new File("/home/anthony/scala_work/mcTempFiles/")
   ) {
 
@@ -492,6 +494,7 @@ case class LsmParams(
     strB.append(" K:\t"+(formatStr.format(strike))+"\n")
     strB.append(" R:\t"+(formatStr.format(rate))+"\n")
     strB.append(" V:\t"+(formatStr.format(volatility))+"\n")
+    strB.append(" rngSeed:\t"+rngSeed+"\n")
     strB.append("]\n")
     strB.result
   }
@@ -882,6 +885,7 @@ object lsm {
     val msg = "calcAsianOptionValue path"
     val payOffFn = (avg: Double) => params.payoffFn(0.0D, avg, params)
     val exp_a = exp(a)
+    dgRng.setSeed(params.rngSeed)
 
     // AndroidSpecificCode
     var startTime = System.currentTimeMillis
@@ -971,7 +975,7 @@ object lsm {
     val startTime = System.nanoTime
     val payoffFnStr = "K-S"
     val payoffFn = lsm.EqnParsers.parseEval(payoffFnStr)
-    val params = LsmParams( payoffFn, payoffFnStr, 8, 3, 3, 1.0, 1.10, 0.06, 0.0, 8, 50000, 10 ) 
+    val params = LsmParams( payoffFn, payoffFnStr, 8, 3, 3, 1.0, 1.10, 0.06, 0.0, 8, 50000, 10, 1) 
     println ("params = "+params)
 
     val priceMatrix = new Matrix(Array(
@@ -1191,13 +1195,13 @@ object lsm {
 
     val payoffFnStr = "K-S"
     val payoffFn = lsm.EqnParsers.parseEval(payoffFnStr)
-    val test_01 = LsmParams( payoffFn, payoffFnStr, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20, 50, 50000, 1 ) 
+    val test_01 = LsmParams( payoffFn, payoffFnStr, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20, 50, 50000, 1, 1 ) 
     //simulate(test_01)
 
     val asianPayoffFnStr = "SAVG-K"
     val asianPayoffFn = lsm.EqnParsers.parseEval(asianPayoffFnStr)
     // hull val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 100000, 1, 100, 50.0, 50.0, 0.10, 0.40, 50, 50000, 1 ) 
-    val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 1000000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1 ) 
+    val asianTest_01 = LsmParams( asianPayoffFn, asianPayoffFnStr, 1000000, 1, 100, 2.0, 2.0, 0.02, 0.10, 50, 50000, 1, 1 ) 
     asianSimulate(asianTest_01)
     /*val test_01 = LsmParams( true, 10000, 1, 50, 36.0, 40.0, 0.06, 0.20 ) 
     val test_02 = LsmParams( true, 10000, 2, 100, 36.0, 40.0, 0.06, 0.20 ) 
