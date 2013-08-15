@@ -56,7 +56,7 @@ class LSMCalcParams(_params: LsmParams, _callerService: Actor) {
 }
 
 case class CalcStartLSM(params: LSMCalcParams)
-case class CalcStartAsianMC(params: LSMCalcParams)
+case class CalcStartAsianMC(params: LSMCalcParams, scala_jni: String)
 case class mcOptCalServiceAsianResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class mcOptCalServiceLSMResult(lsmOV: Tuple3[Double, Double, Array[Array[Double]]], runTime: Long)
 case class lsmStatusReport(step: Int, numSteps: Int, msg: String)
@@ -82,24 +82,26 @@ class Calc extends Actor {
           //Debug.stopMethodTracing()
           callerService ! mcOptCalServiceLSMResult(lsmOV, ((endTime-startTime)/1e6).toLong)
         }
-        case CalcStartAsianMC(lsmCalcParams) => {
+        case CalcStartAsianMC(lsmCalcParams, scala_jni) => {
           Log.d(TAG, "CalcStartAsianMC" )
           callerService = lsmCalcParams.callerService
 
-          /* JNI version
-          println("calling native calcAsianOptionValueJNI")
-          val startTime = System.nanoTime
-          val lsmJNI = new lsm
-          val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(lsmCalcParams.params, lsm.rng)
-          val endTime = System.nanoTime
-          println("calcAsianOptionValueJNI = "+asianOVJNI)
-          callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
-
-          // Scala version
-          val startTime = System.nanoTime
-          val asianOV = lsm.calcAsianOptionValue(lsmCalcParams.params, lsmCalcParams.callerService)
-          val endTime = System.nanoTime
-          callerService ! mcOptCalServiceAsianResult((asianOV._1, asianOV._2, null), ((endTime-startTime)/1e6).toLong) // */
+          if (scala_jni == "JNI") {
+            // JNI version
+            println("calling native calcAsianOptionValueJNI")
+            val startTime = System.nanoTime
+            val lsmJNI = new lsm
+            val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(lsmCalcParams.params, lsm.rng)
+            val endTime = System.nanoTime
+            println("calcAsianOptionValueJNI = "+asianOVJNI)
+            callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
+          } else {
+            // Scala version
+            val sStartTime = System.nanoTime
+            val asianOV = lsm.calcAsianOptionValue(lsmCalcParams.params, lsmCalcParams.callerService)
+            val sEndTime = System.nanoTime
+            callerService ! mcOptCalServiceAsianResult((asianOV._1, asianOV._2, null), ((sEndTime-sStartTime)/1e6).toLong) // */
+          }
         }
       }
     }
@@ -272,7 +274,7 @@ class mcOptCalService extends Service with Actor {
     }
   }
 
-  def startAsianMC(params: LsmParams) { // todo need asianParams?
+  def startAsianMC(params: LsmParams, scala_jni: String) { // todo need asianParams?
     Log.d(TAG, "mcOptCalService.startAsianMC" )
     if (!calcRunning) {
       working = true
@@ -291,7 +293,7 @@ class mcOptCalService extends Service with Actor {
       mNM.notify(1, notification)
 
       val lsmCalcParams = new LSMCalcParams(params, this)
-      calc ! CalcStartAsianMC(lsmCalcParams) //todo
+      calc ! CalcStartAsianMC(lsmCalcParams, scala_jni) //todo
     }
   }
 
@@ -465,6 +467,7 @@ class MainActivity extends Activity with TypedActivity {
   var calc: Calc = null
   var cacheData: CacheData = _
   var funcAry: Array[Array[Double]] = Array.fill(10, 10)(0d) //todo
+  var scala_jni = "Scala"
 
   private var mService: mcOptCalService = _
   private var mBound: Boolean = false
@@ -558,7 +561,7 @@ class MainActivity extends Activity with TypedActivity {
           cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
           updateOutputText(cacheData.statusStr)
           if (isAsian)
-            mService.startAsianMC(params)
+            mService.startAsianMC(params, scala_jni)
           mService.startLSM(params)
         }
       }
@@ -1143,6 +1146,12 @@ class MainActivity extends Activity with TypedActivity {
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
+              scala_jni = {
+                val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
+                ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
+              }
+              println("scala_jni = "+scala_jni)
+
               val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
 
               val newStateData = StateData(

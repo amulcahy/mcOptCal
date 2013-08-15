@@ -29,6 +29,9 @@
   <string name="numsamples">numSamples</string>
   <string name="threshold">Threshold</string>
   <string name="uiupdateinterval">uiUpdateInterval</string>
+  <string name="scala_jni">Scala / JNI</string>
+  <string name="scala">Scala</string>
+  <string name="jni">JNI</string>
 
 <string name="help_content">
 \nmcOptCal\n

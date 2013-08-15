@@ -55,6 +55,93 @@ import scala.util.Random
 import scala.math._
 
 /**
+ * Random Number Generator Class
+ *
+ */
+class dgRandom(_seed: Integer) {
+
+  /**
+   * @constructor 
+   *
+   * @param m The number of rows.
+   */
+  def this() = this(1)
+
+  private val a: Integer = 16807      // Minimal Standard Random Number Generator
+  private val m: Integer = 2147483647 // Minimal Standard Random Number Generator
+  private val q: Integer = m/a        // Minimal Standard Random Number Generator
+  private val r: Integer = m % a      // Minimal Standard Random Number Generator
+
+  private var seed: Integer = _seed           // Minimal Standard Random Number Generator
+
+  /**
+   * Minimal Standard Random Number Generator
+   * Ref: "Random Number Generators: Good Ones Are Hard To Find", Park & Miller
+   */
+  def msrng = {
+    val hi = seed / q
+    val lo = seed % q
+    val test = a * lo - r * hi;
+    
+    if(test > 0)
+      seed = test
+    else
+      seed = test + m
+    seed.toDouble/m
+  }
+
+  private val bsm_a = Array(
+    2.50662823884,
+    -18.61500062529,
+    41.39119773534,
+    -25.44106049637)
+  private val bsm_b = Array(
+    -8.47351093090,
+    23.08336743743,
+    -21.06224101826,
+    3.13082909833)
+  private val bsm_c = Array(
+    0.3374754822726147,
+    0.9761690190917186,
+    0.1607979714918209,
+    0.0276438810333863,
+    0.0038405729373609,
+    0.0003951896511919,
+    0.0000321767881768,
+    0.0000002888167364,
+    0.0000003960315187)
+
+  /**
+  * Beasley-Springer-Moro algorithm for approximating the inverse normal
+  * Ref: "Monte Carlo Methods in Financial Engineering", Glasserman
+  */
+  val bsmInvNormal = (u: Double) => {
+    var x: Double = Double.NaN
+    val y: Double = u - 0.5D
+    var r: Double = Double.NaN
+    if (abs(y) < 0.42D)
+      {
+      r = y*y
+      x = y*(((bsm_a(3)*r + bsm_a(2))*r + bsm_a(1))*r + bsm_a(0))/ ((((bsm_b(3)*r + bsm_b(2))*r + bsm_b(1))*r + bsm_b(0))*r + 1.0D)
+    } else {
+      r = u
+      if (y > 0.0D)
+        r = 1.0D - u
+      r = log(-log(r))
+      x = bsm_c(0) + r*(bsm_c(1) + r*(bsm_c(2) + r*(bsm_c(3) + r*(bsm_c(4)+ r*(bsm_c(5) + r*(bsm_c(6) + r*(bsm_c(7) + r*bsm_c(8))))))))
+      if (y < 0.0D)
+        x = -x
+    }
+    x
+  }
+
+  def nextGaussian: Double = bsmInvNormal(msrng)
+
+  def setSeed(s: Integer) { seed = s }
+
+}
+
+/**
  * The Black-Scholes formulas for a European call/put option on a non-dividend-paying stock.
  *
  * @note References : Hull, Options, Futures and Other Derivatives 6th Ed, p295-298
@@ -424,6 +511,8 @@ object lsm {
   private val DEBUG = false
 
   val rng: Random = new Random
+  val dgRng: dgRandom = new dgRandom
+
   private val sqr = (x: Double) => (x * x)
 
   /**
@@ -777,6 +866,7 @@ object lsm {
 
   val calcAsianOptionValue: (LsmParams, Actor) => (Double, Double) = (params: LsmParams, callerService: Actor) => {
     assert( params.numPaths%2 == 0)
+    println("calcAsianOptionValue")
     val a = (params.rate -  sqr(params.volatility)*0.5)*params.dT
     val b = params.volatility*sqrt(params.dT)
     var i = 0
@@ -806,7 +896,8 @@ object lsm {
 
       var j = 1
       while (j < params.numSteps+1) {
-        val dZ = rng.nextGaussian
+        //val dZ = rng.nextGaussian
+        val dZ = dgRng.nextGaussian
         val exp_bdZ = exp(b*dZ)
         s1 = s1*exp_a*exp_bdZ
         s2 = s2*exp_a/exp_bdZ // antithetic path
