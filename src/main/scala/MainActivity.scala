@@ -338,7 +338,6 @@ class mcOptCalService extends Service with Actor {
 
 case class StateData(
   payoffFnStr: String,
-  isPut: Boolean,
   numPaths: Int,
   timeToExpiration: Double,
   numSteps: Int,
@@ -356,7 +355,6 @@ case class StateData(
   def saveToSharedPreferences(context: Context) {
     val prefsEdit = PreferenceManager.getDefaultSharedPreferences(context).edit()
     prefsEdit.putString("payoffFnStr", payoffFnStr).commit()
-    prefsEdit.putString("isPut", isPut.toString).commit()
     prefsEdit.putString("numPaths", numPaths.toString).commit()
     prefsEdit.putString("timeToExpiration", timeToExpiration.toString).commit()
     prefsEdit.putString("numSteps", numSteps.toString).commit()
@@ -376,7 +374,6 @@ case object StateData {
 
   def restoreFromPreferences(context: Context) = StateData( 
     PreferenceManager.getDefaultSharedPreferences(context).getString("payoffFnStr", "K-S"),
-    PreferenceManager.getDefaultSharedPreferences(context).getString("isPut", "true").toBoolean,
     PreferenceManager.getDefaultSharedPreferences(context).getString("numPaths", "10000").toInt,
     PreferenceManager.getDefaultSharedPreferences(context).getString("timeToExpiration", "1.0").toDouble,
     PreferenceManager.getDefaultSharedPreferences(context).getString("numSteps", "50").toInt,
@@ -734,6 +731,40 @@ class MainActivity extends Activity with TypedActivity {
     super.onDestroy
   }
 
+  private def negativeBtnClk(dialog: DialogInterface, id: Int, textEntryView: View) {
+    val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+    imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+    dialog.cancel()
+  }
+
+  private def positiveBtnClk( dialog: DialogInterface, textEntryView: View ) = {
+    val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+    imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
+
+    dialog.dismiss()
+
+    val newStateData = StateData.restoreFromPreferences(getApplicationContext)
+    val params = LsmParams(
+      lsm.EqnParsers.parseEval(newStateData.payoffFnStr),
+      newStateData.payoffFnStr,
+      newStateData.numPaths,
+      newStateData.timeToExpiration.toInt,
+      newStateData.numSteps,
+      newStateData.stock,
+      newStateData.exercisePrice,
+      newStateData.riskFreeRate,
+      newStateData.volatility,
+      newStateData.numSamples,
+      newStateData.threshold,
+      newStateData.uiUpdateInterval,
+      newStateData.rngSeed,
+      getApplicationContext.getExternalFilesDir(null) )
+
+    cleanTempFiles //todo
+
+    params
+  }
+
   override protected def onCreateDialog(id: Int): Dialog = {
     val factory = LayoutInflater.from(this)
     id match {
@@ -754,7 +785,6 @@ class MainActivity extends Activity with TypedActivity {
               val stateData = StateData.restoreFromPreferences(getApplicationContext)
               val newStateData = StateData(
                 stateData.payoffFnStr,
-                stateData.isPut,
                 stateData.numPaths,
                 timeToExpiration,
                 stateData.numSteps,
@@ -769,8 +799,8 @@ class MainActivity extends Activity with TypedActivity {
                 stateData.rngSeed )
               newStateData.saveToSharedPreferences(getApplicationContext)
 
-              val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-              prefs.edit().putString("stateDataSaved", "true").commit()
+              /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+              prefs.edit().putString("stateDataSaved", "true").commit()*/
 
               val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
               imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
@@ -828,10 +858,11 @@ class MainActivity extends Activity with TypedActivity {
             override def onClick(dialog: DialogInterface, id: Int) {
               //textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              negativeBtnClk(dialog, id, textEntryView)
+              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
               imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
-              dialog.cancel()
+              dialog.cancel()*/
             }
           })
         .create()
@@ -861,13 +892,13 @@ class MainActivity extends Activity with TypedActivity {
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError("Parse Error!")
                 }
                 case _ => {
-                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                   //TODO
+                  textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
+
                   val stateData = StateData.restoreFromPreferences(getApplicationContext)
                   val newStateData = StateData(
                     payoffFnStr,
-                    true,
                     numPaths,
                     timeToExpiration,
                     numSteps,
@@ -882,10 +913,10 @@ class MainActivity extends Activity with TypedActivity {
                     stateData.rngSeed )
                   newStateData.saveToSharedPreferences(getApplicationContext)
 
-                  val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                  prefs.edit().putString("stateDataSaved", "true").commit()
+                  /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                  prefs.edit().putString("stateDataSaved", "true").commit()*/
 
-                  val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+                  /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
                   imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
                   dialog.dismiss()
@@ -904,9 +935,11 @@ class MainActivity extends Activity with TypedActivity {
                     newStateData.threshold,
                     newStateData.uiUpdateInterval,
                     stateData.rngSeed,
-                    getApplicationContext.getExternalFilesDir(null) )
+                    getApplicationContext.getExternalFilesDir(null) )*/
 
-                  cleanTempFiles //todo
+                  //cleanTempFiles //todo
+
+                  val params = positiveBtnClk( dialog, textEntryView )
 
                   // 1.01 start service only when running LSM
                   Log.d(TAG, "Starting mcOptCal Service" )
@@ -924,10 +957,11 @@ class MainActivity extends Activity with TypedActivity {
             override def onClick(dialog: DialogInterface, id: Int) {
               textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              negativeBtnClk(dialog, id, textEntryView)
+              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
               imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
-              dialog.cancel()
+              dialog.cancel()*/
             }
           })
         .create()
@@ -958,7 +992,6 @@ class MainActivity extends Activity with TypedActivity {
                         val stateData = StateData.restoreFromPreferences(getApplicationContext)
                         val newStateData = StateData(
                           payoffFnStr,
-                          true,
                           numPaths,
                           timeToExpiration,
                           numSteps,
@@ -973,9 +1006,10 @@ class MainActivity extends Activity with TypedActivity {
                           stateData.rngSeed )
                         newStateData.saveToSharedPreferences(getApplicationContext)
 
-                        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                        prefs.edit().putString("stateDataSaved", "true").commit()
+                        /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                        prefs.edit().putString("stateDataSaved", "true").commit()*/
 
+                        /*
                         val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
                         imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
@@ -997,7 +1031,9 @@ class MainActivity extends Activity with TypedActivity {
                           newStateData.rngSeed,
                           getApplicationContext.getExternalFilesDir(null) )
 
-                        cleanTempFiles //todo
+                        cleanTempFiles //todo */
+
+                        val params = positiveBtnClk( asianParamsDialog, textEntryView )
 
                         // 1.01 start service only when running LSM
                         Log.d(TAG, "Starting mcOptCal Service" )
@@ -1046,7 +1082,6 @@ class MainActivity extends Activity with TypedActivity {
                   val stateData = StateData.restoreFromPreferences(getApplicationContext)
                   val newStateData = StateData(
                     payoffFnStr,
-                    true,
                     numPaths,
                     timeToExpiration,
                     numSteps,
@@ -1061,8 +1096,8 @@ class MainActivity extends Activity with TypedActivity {
                     stateData.rngSeed )
                   newStateData.saveToSharedPreferences(getApplicationContext)
 
-                  val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                  prefs.edit().putString("stateDataSaved", "true").commit()
+                  /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                  prefs.edit().putString("stateDataSaved", "true").commit()*/
 
                   val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
                   imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
@@ -1086,10 +1121,11 @@ class MainActivity extends Activity with TypedActivity {
             override def onClick(dialog: DialogInterface, id: Int) {
               textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              negativeBtnClk(dialog, id, textEntryView)
+              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
               imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
-              dialog.cancel()
+              dialog.cancel()*/
             }
           })
         .create()
@@ -1120,7 +1156,6 @@ class MainActivity extends Activity with TypedActivity {
                         val stateData = StateData.restoreFromPreferences(getApplicationContext)
                         val newStateData = StateData(
                           payoffFnStr,
-                          true,
                           numPaths,
                           timeToExpiration,
                           numSteps,
@@ -1135,8 +1170,8 @@ class MainActivity extends Activity with TypedActivity {
                           stateData.rngSeed )
                         newStateData.saveToSharedPreferences(getApplicationContext)
 
-                        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                        prefs.edit().putString("stateDataSaved", "true").commit()
+                        /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                        prefs.edit().putString("stateDataSaved", "true").commit()*/
 
                         val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
                         imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
@@ -1188,7 +1223,6 @@ class MainActivity extends Activity with TypedActivity {
               val stateData = StateData.restoreFromPreferences(getApplicationContext)
               val newStateData = StateData(
                 stateData.payoffFnStr,
-                stateData.isPut,
                 stateData.numPaths,
                 stateData.timeToExpiration,
                 stateData.numSteps,
@@ -1203,8 +1237,8 @@ class MainActivity extends Activity with TypedActivity {
                 rngSeed )
               newStateData.saveToSharedPreferences(getApplicationContext)
 
-              val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-              prefs.edit().putString("stateDataSaved", "true").commit()
+              /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+              prefs.edit().putString("stateDataSaved", "true").commit()*/
 
               val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
               imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
@@ -1214,10 +1248,11 @@ class MainActivity extends Activity with TypedActivity {
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+              negativeBtnClk(dialog, id, textEntryView)
+              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
               imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
 
-              dialog.cancel()
+              dialog.cancel()*/
             }
           })
         .create()
@@ -1245,7 +1280,6 @@ class MainActivity extends Activity with TypedActivity {
                     val stateData = StateData.restoreFromPreferences(getApplicationContext)
                     val newStateData = StateData(
                       stateData.payoffFnStr,
-                      stateData.isPut,
                       stateData.numPaths,
                       stateData.timeToExpiration,
                       stateData.numSteps,
@@ -1260,8 +1294,8 @@ class MainActivity extends Activity with TypedActivity {
                       rngSeed )
                     newStateData.saveToSharedPreferences(getApplicationContext)
 
-                    val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                    prefs.edit().putString("stateDataSaved", "true").commit()
+                    /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
+                    prefs.edit().putString("stateDataSaved", "true").commit()*/
 
                     val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
                     imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)

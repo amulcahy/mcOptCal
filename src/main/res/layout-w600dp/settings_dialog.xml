@@ -30,7 +30,7 @@
 	  android:orientation="horizontal"
 	  android:layout_span="1" 
 	  >
-	  <RadioButton android:id="@+id/radioRBtnScala"
+	  <RadioButton android:id="@+id/radioBtnScala"
 	    android:text="@string/scala" 
 	    android:textSize="16sp"
 	    android:checked="true" 
