@@ -69,6 +69,26 @@ class Calc extends Actor {
 
   var callerService: Actor = null
 
+  def jniUpdateUI(msg: String, count: Int, total: Int): Boolean = {
+    Log.d("jniUpdateUI", "msg ="+msg)
+    var abortFlag = false
+    if (callerService != null)
+      callerService ! lsmStatusReport(count, total, msg)
+    else
+      Log.d(TAG, msg+" ="+count+" of "+total)
+    receiveWithin(1) {
+      case TIMEOUT => { }
+      case CalcStopLSM => {
+        println("jniAbortMC" )
+        //abort = true
+        callerService ! lsmAbortReport
+        //exit()
+        abortFlag = true
+      }
+    }
+    abortFlag
+  }
+
   def act() {
     loop {
       react {
@@ -86,13 +106,14 @@ class Calc extends Actor {
           Log.d(TAG, "CalcStartAsianMC" )
           callerService = lsmCalcParams.callerService
 
+          val calc: Calc = this
           if (jniFlag) {
             // JNI version
             Log.d("ASIAN", "calling native calcAsianOptionValueJNI")
             val startTime = System.nanoTime
             val lsmJNI = new lsm
             Log.d("ASIAN", "lsmCalcParams.params"+lsmCalcParams.params)
-            val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(lsmCalcParams.params, lsm.rng)
+            val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(calc, lsmCalcParams.params, lsm.rng)
             val endTime = System.nanoTime
             Log.d("ASIAN", "calcAsianOptionValueJNI = "+asianOVJNI)
             callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
@@ -764,6 +785,75 @@ class MainActivity extends Activity with TypedActivity {
 
     params
   }
+  
+  private def updateSettingsStateData(jniFlag: Boolean, uiUpdateInterval: Int) {
+    val stateData = StateData.restoreFromPreferences(getApplicationContext)
+    val newStateData = StateData(
+      stateData.payoffFnStr,
+      stateData.numPaths,
+      stateData.timeToExpiration,
+      stateData.numSteps,
+      stateData.stock,
+      stateData.exercisePrice,
+      stateData.riskFreeRate,
+      stateData.volatility,
+      stateData.numSamples,
+      stateData.threshold,
+      uiUpdateInterval, 
+      jniFlag,
+      stateData.rngSeed )
+    newStateData.saveToSharedPreferences(getApplicationContext)
+  }
+
+  private def updateBSParamsStateData( timeToExpiration: Double,
+    stock: Double,
+    exercisePrice: Double,
+    riskFreeRate: Double,
+    volatility: Double ) {
+    val stateData = StateData.restoreFromPreferences(getApplicationContext)
+    val newStateData = StateData(
+      stateData.payoffFnStr,
+      stateData.numPaths,
+      timeToExpiration,
+      stateData.numSteps,
+      stock,
+      exercisePrice,
+      riskFreeRate,
+      volatility,
+      stateData.numSamples,
+      stateData.threshold,
+      stateData.uiUpdateInterval,
+      stateData.jniFlag,
+      stateData.rngSeed )
+    newStateData.saveToSharedPreferences(getApplicationContext)
+  }
+
+  private def updateParamsStateData( payoffFnStr: String,
+    numPaths: Int,
+    timeToExpiration: Double,
+    numSteps: Int,
+    stock: Double,
+    exercisePrice: Double,
+    riskFreeRate: Double,
+    volatility: Double,
+    rngSeed: Int ) {
+    val stateData = StateData.restoreFromPreferences(getApplicationContext)
+    val newStateData = StateData(
+      payoffFnStr,
+      numPaths,
+      timeToExpiration,
+      numSteps,
+      stock,
+      exercisePrice,
+      riskFreeRate,
+      volatility,
+      stateData.numSamples,
+      stateData.threshold,
+      stateData.uiUpdateInterval,
+      stateData.jniFlag,
+      rngSeed )
+    newStateData.saveToSharedPreferences(getApplicationContext)
+  }
 
   override protected def onCreateDialog(id: Int): Dialog = {
     val factory = LayoutInflater.from(this)
@@ -782,57 +872,12 @@ class MainActivity extends Activity with TypedActivity {
               val volatility = textEntryView.findViewById(R.id.edittext4).asInstanceOf[EditText].getText().toString.toDouble
               val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
 
-              val stateData = StateData.restoreFromPreferences(getApplicationContext)
-              val newStateData = StateData(
-                stateData.payoffFnStr,
-                stateData.numPaths,
-                timeToExpiration,
-                stateData.numSteps,
-                stock,
-                exercisePrice,
-                riskFreeRate,
-                volatility,
-                stateData.numSamples,
-                stateData.threshold,
-                stateData.uiUpdateInterval,
-                stateData.jniFlag,
-                stateData.rngSeed )
-              newStateData.saveToSharedPreferences(getApplicationContext)
-
-              /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-              prefs.edit().putString("stateDataSaved", "true").commit()*/
-
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.dismiss()
-
-              val params = LsmParams(
-                lsm.EqnParsers.parseEval(stateData.payoffFnStr),
-                stateData.payoffFnStr,
-                stateData.numPaths,
-                stateData.timeToExpiration.toInt,
-                stateData.numSteps,
-                stateData.stock,
-                stateData.exercisePrice,
-                stateData.riskFreeRate,
-                stateData.volatility,
-                stateData.numSamples,
-                stateData.threshold,
-                stateData.uiUpdateInterval,
-                stateData.rngSeed,
-                getApplicationContext.getExternalFilesDir(null) )
+              updateBSParamsStateData( timeToExpiration, stock, exercisePrice, riskFreeRate, volatility)
+              val params = positiveBtnClk( dialog, textEntryView )
 
               val strB = new StringBuilder
-              strB.append("\nStart BS calculation:\n[\n")
-              val formatStr = "% .3f"
-
-              strB.append(" T:\t"++(formatStr.format(params.expiry.toDouble))+"\n")
-              strB.append(" S0:\t"+(formatStr.format(params.stock))+"\n")
-              strB.append(" K:\t"+(formatStr.format(params.strike))+"\n")
-              strB.append(" R:\t"+(formatStr.format(params.rate))+"\n")
-              strB.append(" V:\t"+(formatStr.format(params.volatility))+"\n")
-              strB.append("]\n")
+              strB.append("\nStart BS calculation:\n")
+              strB.append(params)
 
               val newData = {
                 val bsEuroCallVal = dgmath.bsEuropeanCallVal(
@@ -855,15 +900,7 @@ class MainActivity extends Activity with TypedActivity {
             }
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              //textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
-
-              negativeBtnClk(dialog, id, textEntryView)
-              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.cancel()*/
-            }
+            override def onClick(dialog: DialogInterface, id: Int) { negativeBtnClk(dialog, id, textEntryView) }
           })
         .create()
         alrtDialog
@@ -884,6 +921,7 @@ class MainActivity extends Activity with TypedActivity {
               val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
               val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
               val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+              val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
 
               val eqn = lsm.EqnParsers.parse(payoffFnStr)
               eqn match {
@@ -893,51 +931,10 @@ class MainActivity extends Activity with TypedActivity {
                 }
                 case _ => {
 
-                  //TODO
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-                  val stateData = StateData.restoreFromPreferences(getApplicationContext)
-                  val newStateData = StateData(
-                    payoffFnStr,
-                    numPaths,
-                    timeToExpiration,
-                    numSteps,
-                    stock,
-                    exercisePrice,
-                    riskFreeRate,
-                    volatility,
-                    stateData.numSamples,
-                    stateData.threshold,
-                    stateData.uiUpdateInterval,
-                    stateData.jniFlag,
-                    stateData.rngSeed )
-                  newStateData.saveToSharedPreferences(getApplicationContext)
-
-                  /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                  prefs.edit().putString("stateDataSaved", "true").commit()*/
-
-                  /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-                  imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-                  dialog.dismiss()
-
-                  val params = LsmParams(
-                    lsm.EqnParsers.parseEval(newStateData.payoffFnStr),
-                    newStateData.payoffFnStr,
-                    newStateData.numPaths,
-                    newStateData.timeToExpiration.toInt,
-                    newStateData.numSteps,
-                    newStateData.stock,
-                    newStateData.exercisePrice,
-                    newStateData.riskFreeRate,
-                    newStateData.volatility,
-                    newStateData.numSamples,
-                    newStateData.threshold,
-                    newStateData.uiUpdateInterval,
-                    stateData.rngSeed,
-                    getApplicationContext.getExternalFilesDir(null) )*/
-
-                  //cleanTempFiles //todo
+                  updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
+                    exercisePrice, riskFreeRate, volatility, rngSeed)
 
                   val params = positiveBtnClk( dialog, textEntryView )
 
@@ -954,15 +951,7 @@ class MainActivity extends Activity with TypedActivity {
             }
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
-
-              negativeBtnClk(dialog, id, textEntryView)
-              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.cancel()*/
-            }
+            override def onClick(dialog: DialogInterface, id: Int) { negativeBtnClk(dialog, id, textEntryView) }
           })
         .create()
         asianParamsDialog.setOnShowListener(new DialogInterface.OnShowListener() {
@@ -978,6 +967,7 @@ class MainActivity extends Activity with TypedActivity {
                     val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
                     val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
                     val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+                    val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
 
                     val eqn = lsm.EqnParsers.parse(payoffFnStr)
                     eqn match {
@@ -988,50 +978,8 @@ class MainActivity extends Activity with TypedActivity {
                       case _ => {
                         textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-                        //TODO
-                        val stateData = StateData.restoreFromPreferences(getApplicationContext)
-                        val newStateData = StateData(
-                          payoffFnStr,
-                          numPaths,
-                          timeToExpiration,
-                          numSteps,
-                          stock,
-                          exercisePrice,
-                          riskFreeRate,
-                          volatility,
-                          stateData.numSamples,
-                          stateData.threshold,
-                          stateData.uiUpdateInterval,
-                          stateData.jniFlag,
-                          stateData.rngSeed )
-                        newStateData.saveToSharedPreferences(getApplicationContext)
-
-                        /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                        prefs.edit().putString("stateDataSaved", "true").commit()*/
-
-                        /*
-                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-                        imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-                        asianParamsDialog.dismiss()
-
-                        val params = LsmParams(
-                          lsm.EqnParsers.parseEval(newStateData.payoffFnStr),
-                          newStateData.payoffFnStr,
-                          newStateData.numPaths,
-                          newStateData.timeToExpiration.toInt,
-                          newStateData.numSteps,
-                          newStateData.stock,
-                          newStateData.exercisePrice,
-                          newStateData.riskFreeRate,
-                          newStateData.volatility,
-                          newStateData.numSamples,
-                          newStateData.threshold,
-                          newStateData.uiUpdateInterval,
-                          newStateData.rngSeed,
-                          getApplicationContext.getExternalFilesDir(null) )
-
-                        cleanTempFiles //todo */
+                        updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
+                          exercisePrice, riskFreeRate, volatility, rngSeed)
 
                         val params = positiveBtnClk( asianParamsDialog, textEntryView )
 
@@ -1068,6 +1016,7 @@ class MainActivity extends Activity with TypedActivity {
               val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
               val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
               val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+              val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
 
               val eqn = lsm.EqnParsers.parse(payoffFnStr)
               eqn match {
@@ -1078,33 +1027,11 @@ class MainActivity extends Activity with TypedActivity {
                 case _ => {
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-                  //TODO
-                  val stateData = StateData.restoreFromPreferences(getApplicationContext)
-                  val newStateData = StateData(
-                    payoffFnStr,
-                    numPaths,
-                    timeToExpiration,
-                    numSteps,
-                    stock,
-                    exercisePrice,
-                    riskFreeRate,
-                    volatility,
-                    stateData.numSamples,
-                    stateData.threshold,
-                    stateData.uiUpdateInterval,
-                    stateData.jniFlag,
-                    stateData.rngSeed )
-                  newStateData.saveToSharedPreferences(getApplicationContext)
+                  updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
+                    exercisePrice, riskFreeRate, volatility, rngSeed)
 
-                  /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                  prefs.edit().putString("stateDataSaved", "true").commit()*/
+                  val params = positiveBtnClk( dialog, textEntryView )
 
-                  val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-                  imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-                  dialog.dismiss()
-
-                  cleanTempFiles //todo
                   // 1.01 start service only when running LSM
                   Log.d(TAG, "Starting mcOptCal Service" )
                   intent = new Intent(MainActivity.this, classOf[mcOptCalService])
@@ -1118,15 +1045,7 @@ class MainActivity extends Activity with TypedActivity {
             }
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
-
-              negativeBtnClk(dialog, id, textEntryView)
-              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.cancel()*/
-            }
+            override def onClick(dialog: DialogInterface, id: Int) { negativeBtnClk(dialog, id, textEntryView) }
           })
         .create()
         lsmParamsDialog.setOnShowListener(new DialogInterface.OnShowListener() {
@@ -1142,6 +1061,7 @@ class MainActivity extends Activity with TypedActivity {
                     val timeToExpiration = textEntryView.findViewById(R.id.edittext5).asInstanceOf[EditText].getText().toString.toDouble
                     val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
                     val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
+                    val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
 
                     val eqn = lsm.EqnParsers.parse(payoffFnStr)
                     eqn match {
@@ -1152,33 +1072,11 @@ class MainActivity extends Activity with TypedActivity {
                       case _ => {
                         textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
-                        //TODO
-                        val stateData = StateData.restoreFromPreferences(getApplicationContext)
-                        val newStateData = StateData(
-                          payoffFnStr,
-                          numPaths,
-                          timeToExpiration,
-                          numSteps,
-                          stock,
-                          exercisePrice,
-                          riskFreeRate,
-                          volatility,
-                          stateData.numSamples,
-                          stateData.threshold,
-                          stateData.uiUpdateInterval,
-                          stateData.jniFlag,
-                          stateData.rngSeed )
-                        newStateData.saveToSharedPreferences(getApplicationContext)
+                        updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
+                          exercisePrice, riskFreeRate, volatility, rngSeed)
 
-                        /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                        prefs.edit().putString("stateDataSaved", "true").commit()*/
+                        val params = positiveBtnClk( lsmParamsDialog, textEntryView )
 
-                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-                        imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-                        lsmParamsDialog.dismiss()
-
-                        cleanTempFiles //todo
                         // 1.01 start service only when running LSM
                         Log.d(TAG, "Starting mcOptCal Service" )
                         intent = new Intent(MainActivity.this, classOf[mcOptCalService])
@@ -1207,53 +1105,20 @@ class MainActivity extends Activity with TypedActivity {
               val jniFlag = {
                 val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
                 val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
-                Log.d(TAG, "scala_jni = "+scala_jni)
                 if (scala_jni == "JNI")
                   true
                 else
                   false
               }
-              Log.d(TAG, "jniFlag = "+jniFlag)
-
               val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
 
-              val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
-              Log.d(TAG, "rngSeed = "+rngSeed)
+              updateSettingsStateData(jniFlag, uiUpdateInterval)
 
-              val stateData = StateData.restoreFromPreferences(getApplicationContext)
-              val newStateData = StateData(
-                stateData.payoffFnStr,
-                stateData.numPaths,
-                stateData.timeToExpiration,
-                stateData.numSteps,
-                stateData.stock,
-                stateData.exercisePrice,
-                stateData.riskFreeRate,
-                stateData.volatility,
-                stateData.numSamples,
-                stateData.threshold,
-                uiUpdateInterval, 
-                jniFlag,
-                rngSeed )
-              newStateData.saveToSharedPreferences(getApplicationContext)
-
-              /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-              prefs.edit().putString("stateDataSaved", "true").commit()*/
-
-              val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.dismiss()
+              val params = positiveBtnClk( dialog, textEntryView )
             }
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              negativeBtnClk(dialog, id, textEntryView)
-              /*val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-              imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-              dialog.cancel()*/
-            }
+            override def onClick(dialog: DialogInterface, id: Int) { negativeBtnClk(dialog, id, textEntryView) }
           })
         .create()
         settingsDialog.setOnShowListener(new DialogInterface.OnShowListener() {
@@ -1264,43 +1129,15 @@ class MainActivity extends Activity with TypedActivity {
                     val jniFlag = {
                       val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
                       val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
-                      Log.d(TAG, "scala_jni = "+scala_jni)
                       if (scala_jni == "JNI")
                         true
                       else
                         false
                     }
-                    Log.d(TAG, "jniFlag = "+jniFlag)
-
                     val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
+                    updateSettingsStateData(jniFlag, uiUpdateInterval)
 
-                    val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
-                    Log.d(TAG, "rngSeed = "+rngSeed)
-
-                    val stateData = StateData.restoreFromPreferences(getApplicationContext)
-                    val newStateData = StateData(
-                      stateData.payoffFnStr,
-                      stateData.numPaths,
-                      stateData.timeToExpiration,
-                      stateData.numSteps,
-                      stateData.stock,
-                      stateData.exercisePrice,
-                      stateData.riskFreeRate,
-                      stateData.volatility,
-                      stateData.numSamples,
-                      stateData.threshold,
-                      uiUpdateInterval, 
-                      jniFlag,
-                      rngSeed )
-                    newStateData.saveToSharedPreferences(getApplicationContext)
-
-                    /*val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext)
-                    prefs.edit().putString("stateDataSaved", "true").commit()*/
-
-                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-                    imm.hideSoftInputFromWindow(textEntryView.getWindowToken(), 0)
-
-                    dialog.dismiss()
+                    val params = positiveBtnClk( dialog, textEntryView )
                   }
                 })
             }
@@ -1314,9 +1151,7 @@ class MainActivity extends Activity with TypedActivity {
         .setTitle(R.string.help)
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              dialog.dismiss()
-            }
+            override def onClick(dialog: DialogInterface, id: Int) { dialog.dismiss() }
           })
         .create()
       }
@@ -1327,9 +1162,7 @@ class MainActivity extends Activity with TypedActivity {
         .setTitle(R.string.copy)
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
-            override def onClick(dialog: DialogInterface, id: Int) {
-              dialog.dismiss()
-            }
+            override def onClick(dialog: DialogInterface, id: Int) { dialog.dismiss() }
           })
         .create()
       }
@@ -1356,6 +1189,7 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.edittext5).asInstanceOf[EditText].setText(stateData.timeToExpiration.toString)
         d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
         d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
+        d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(stateData.rngSeed.toString)
       }
       case LsmParametersDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)
@@ -1367,6 +1201,7 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.edittext5).asInstanceOf[EditText].setText(stateData.timeToExpiration.toString)
         d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
         d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
+        d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(stateData.rngSeed.toString)
       }
       case SettingsDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)
@@ -1376,7 +1211,6 @@ class MainActivity extends Activity with TypedActivity {
         else 
           rBtnGr.check(R.id.radioBtnScala)
         d.findViewById(R.id.edittext9).asInstanceOf[EditText].setText(stateData.uiUpdateInterval.toString)
-        d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(stateData.rngSeed.toString)
       }
       case HelpDlg => {
       }

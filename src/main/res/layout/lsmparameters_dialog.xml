@@ -176,6 +176,22 @@
 	  android:layout_span="1" 
 	  />
       </TableRow>
+      <TableRow
+	>
+	<TextView
+	  android:id="@+id/textviewRngSeed"
+	  android:text="@string/rng_seed"
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+	<EditText 
+	  android:id="@+id/edittextRngSeed" 
+	  android:inputType="number"
+	  android:text="1.0" 
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+      </TableRow>
     </TableLayout>
   </ScrollView>
 </LinearLayout>

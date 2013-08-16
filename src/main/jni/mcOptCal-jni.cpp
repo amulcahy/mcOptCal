@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <jni.h>
+#include <time.h>
 #include <android/log.h>
 
 #include "mcOptCal-jni.h"
@@ -166,6 +167,8 @@ mcResult calcAsianOptionValue(
   double dZ;
   double exp_bdZ;
   double s1, s2, avgX, avgY, payOffX, payOffY, deltaX, deltaY;
+
+
   while (i < numPaths/2)
   {
     s1 = stock;
@@ -236,13 +239,17 @@ extern "C" {
    * Signature: (Lcom/dragongate_technologies/mcOptCal/LsmParams;Lscala/util/Random;)[D
    */
   JNIEXPORT jdoubleArray JNICALL Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI
-    (JNIEnv *env, jobject callingObject, jobject paramsObject, jobject rngObject)
+    (JNIEnv *env, jobject obj, jobject calcObject, jobject paramsObject, jobject rngObject)
     {
       __android_log_print(ANDROID_LOG_INFO,"ASIAN","Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI");
 
+      jclass calcClass = env->GetObjectClass(calcObject);
       jclass paramsClass = env->GetObjectClass(paramsObject);
       jclass rngClass = env->GetObjectClass(rngObject);
       jmethodID rngId = env->GetMethodID(rngClass, "nextGaussian", "()D");
+      jmethodID jniUpdateUIID = env->GetMethodID(calcClass, "jniUpdateUI", "(Ljava/lang/String;II)Z");
+
+      jstring msg = env->NewStringUTF("msg from JNI"); //todo
 
       jfieldID numPathsId = env->GetFieldID(paramsClass, "numPaths", "I");
       jfieldID expiryId = env->GetFieldID(paramsClass, "expiry", "I");
@@ -253,9 +260,7 @@ extern "C" {
       jfieldID volatilityId = env->GetFieldID(paramsClass, "volatility", "D");
       jfieldID uiUpdateIntervalId = env->GetFieldID(paramsClass, "uiUpdateInterval", "I");
       jfieldID dTId = env->GetFieldID(paramsClass, "dT", "D");
-      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check1");
       jfieldID seedId = env->GetFieldID(paramsClass, "rngSeed", "I");
-      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check2");
 
       int numPaths = env->GetIntField(paramsObject, numPathsId);
       int expiry = env->GetIntField(paramsObject, expiryId);
@@ -266,14 +271,109 @@ extern "C" {
       double volatility = env->GetDoubleField(paramsObject, volatilityId);
       int uiUpdateInterval = env->GetIntField(paramsObject, uiUpdateIntervalId);
       double dT = env->GetDoubleField(paramsObject, dTId);
-      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check3");
       long int seed = env->GetIntField(paramsObject, seedId);
-      __android_log_print(ANDROID_LOG_INFO,"ASIAN","check4");
 
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","dT= %lf \n", dT);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","seed = %d \n", seed);
 
-      mcResult result = calcAsianOptionValue(
+      dgRandom dgrng(seed);
+
+      double a = (rate - volatility*volatility*0.5D)*dT;
+      double b = volatility * sqrt(dT);
+      int i = 0;
+      int n = 0;
+      double mean = 0.0D;
+      double m2 = 0.0D;
+      double sum = 0.0D;
+      double x = 0.0D;
+      double y = 0.0D;
+      double pvDiscount = exp(-rate*expiry);
+      double exp_a = exp(a);
+
+      double dZ;
+      double exp_bdZ;
+      double s1, s2, avgX, avgY, payOffX, payOffY, deltaX, deltaY;
+
+
+      bool abort = false;
+      struct timespec tstart, tnow;
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tstart);
+      int total = static_cast<int>(numPaths/2);
+      while (i < numPaths/2)
+      {
+	s1 = stock;
+	s2 = stock;
+	avgX = 0.0D;
+	avgY = 0.0D;
+
+	int j = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tnow);
+	__android_log_print(ANDROID_LOG_INFO,"ASIAN","tnow_sec= %d \n", tnow.tv_sec);
+	if (((tnow.tv_sec != tstart.tv_sec) || ((tnow.tv_nsec - tstart.tv_nsec)>200000000))) {
+	  abort = env->CallBooleanMethod(calcObject, jniUpdateUIID, msg, (total-i), total);
+	  if (abort) {
+	    jdoubleArray resultArray = env->NewDoubleArray(2);
+	    jdouble *rAry = env->GetDoubleArrayElements(resultArray, NULL);
+	    rAry[0] = 0.0D;
+	    rAry[1] = 0.0D;
+	    return resultArray;
+	  }
+	  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tstart);
+	}
+	while (j < numSteps)
+	{
+	  //dZ = env->CallDoubleMethod(rngObject, rngId);
+	  dZ = dgrng.msrngInvNormGaussian();
+	  exp_bdZ = exp(b*dZ);
+	  s1 = s1*exp_a*exp_bdZ;
+	  s2 = s2*exp_a/exp_bdZ; // antithetic path
+
+	  avgX = avgX + s1/static_cast<double>(numSteps);
+	  avgY = avgY + s2/static_cast<double>(numSteps);
+
+	  j++;
+	}
+	payOffX = payOffFn(avgX, strike);
+	if (payOffX > 0.0D)
+	  x = payOffX*pvDiscount;
+	else
+	  x = 0.0D;
+
+	payOffY = payOffFn(avgY, strike);
+	if (payOffY > 0.0D)
+	  y = payOffY*pvDiscount;
+	else
+	  y = 0.0D;
+
+	sum = sum + x;
+	n += 1;
+	deltaX = x - mean;
+	mean += deltaX/static_cast<double>(n);
+	m2 += deltaX*(x - mean);
+
+	sum = sum + y;
+	n += 1;
+	deltaY = y - mean;
+	mean += deltaY/static_cast<double>(n);
+	m2 += deltaY*(y - mean);
+
+	i++;
+      }
+      __android_log_print(ANDROID_LOG_INFO,"ASIAN","finishing up\n");
+
+      double optionValue = sum / static_cast<double>(numPaths);
+      double variance = m2/static_cast<double>(n-1);
+      double sampStdDev = sqrt(variance);
+      double stdErr = sampStdDev/sqrt(static_cast<double>(numPaths));
+
+      mcResult result = 
+      {
+	optionValue,
+	stdErr
+      };
+
+      //return result;
+      /*mcResult result = calcAsianOptionValue(
 	  numPaths,
 	  expiry,
 	  numSteps,
@@ -283,7 +383,7 @@ extern "C" {
 	  volatility,
 	  uiUpdateInterval,
 	  dT,
-	  seed);
+	  seed);*/
 
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","optionValue= %lf \n", optionValue);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","stdErr= %lf \n", stdErr);

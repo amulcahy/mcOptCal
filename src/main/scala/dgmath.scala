@@ -494,7 +494,7 @@ case class LsmParams(
     strB.append(" K:\t"+(formatStr.format(strike))+"\n")
     strB.append(" R:\t"+(formatStr.format(rate))+"\n")
     strB.append(" V:\t"+(formatStr.format(volatility))+"\n")
-    strB.append(" rngSeed:\t"+rngSeed+"\n")
+    strB.append(" rngSeed:  "+rngSeed+"\n")
     strB.append("]\n")
     strB.result
   }
@@ -502,7 +502,7 @@ case class LsmParams(
 
 class lsm {
 
-  @native def calcAsianOptionValueJNI(params: LsmParams, rng: Random): Array[Double]
+  @native def calcAsianOptionValueJNI(calcObj: Calc, params: LsmParams, rng: Random): Array[Double]
 
 }
 
@@ -891,7 +891,6 @@ object lsm {
     var startTime = System.currentTimeMillis
     val uiUpdateInterval = params.uiUpdateInterval
     // AndroidSpecificCode END */
-    //Debug.startMethodTracing("traceFile")
     while ((i < params.numPaths/2) && !abort) {
       var s1 = params.stock
       var s2 = params.stock
@@ -900,8 +899,7 @@ object lsm {
 
       var j = 1
       while (j < params.numSteps+1) {
-        //val dZ = rng.nextGaussian
-        val dZ = dgRng.nextGaussian
+        val dZ = dgRng.nextGaussian //val dZ = rng.nextGaussian
         val exp_bdZ = exp(b*dZ)
         s1 = s1*exp_a*exp_bdZ
         s2 = s2*exp_a/exp_bdZ // antithetic path
@@ -962,7 +960,6 @@ object lsm {
     val variance = m2/(n-1)
     val sampStdDev = sqrt(variance)
     val stdErr = sampStdDev/sqrt(params.numPaths)
-    //Debug.stopMethodTracing()
 
     (optionValue, stdErr)
   }
