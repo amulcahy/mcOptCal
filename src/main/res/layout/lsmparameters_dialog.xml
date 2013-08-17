@@ -192,6 +192,20 @@
 	  android:layout_span="1" 
 	  />
       </TableRow>
+      <TableRow
+	>
+	<TextView
+	  android:text=""
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+	<Button 
+	  android:id="@+id/btnGenRngSeed" 
+	  android:text="@string/genRngSeed"
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+      </TableRow>
     </TableLayout>
   </ScrollView>
 </LinearLayout>

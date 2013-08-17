@@ -550,7 +550,7 @@ object lsm {
       //maxMinAvgMatrix(i*2+1, 2) = params.stock/(n-1)
             //maxCF = max(maxCF, cfMatrix(i, j)*exp(-params.rate*((j-(step-1))*params.dT)))
       while (j < n) {
-        val dZ = rng.nextGaussian
+        val dZ = dgRng.nextGaussian //val dZ = rng.nextGaussian
         s1 = s1*exp(a + b*dZ)
         s2 = s2*exp(a - b*dZ) // antithetic path
         pMatrix(i*2, j) = s1

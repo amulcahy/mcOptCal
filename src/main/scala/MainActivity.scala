@@ -1190,6 +1190,12 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
         d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
         d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(stateData.rngSeed.toString)
+        d.findViewById(R.id.btnGenRngSeed).asInstanceOf[Button].setOnClickListener(new View.OnClickListener() {
+            def onClick(v : View) {
+              val seed = lsm.rng.nextInt
+              d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(seed.toString)
+            }
+          })
       }
       case LsmParametersDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)
@@ -1202,6 +1208,12 @@ class MainActivity extends Activity with TypedActivity {
         d.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].setText(stateData.numPaths.toString)
         d.findViewById(R.id.edittext6).asInstanceOf[EditText].setText(stateData.numSteps.toString)
         d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(stateData.rngSeed.toString)
+        d.findViewById(R.id.btnGenRngSeed).asInstanceOf[Button].setOnClickListener(new View.OnClickListener() {
+            def onClick(v : View) {
+              val seed = lsm.rng.nextInt
+              d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(seed.toString)
+            }
+          })
       }
       case SettingsDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)
