@@ -40,13 +40,13 @@
 	<TextView
 	  android:id="@+id/textview_s"
 	  android:text="@string/stock_price_t"
-	  android:textSize="12sp"
+	  android:textSize="16sp"
 	  android:layout_span="1" 
 	  />
 	<TextView
 	  android:id="@+id/textview_s_v"
 	  android:text="@string/stock_price_t_val"
-	  android:textSize="12sp"
+	  android:textSize="16sp"
 	  android:layout_span="1" 
 	  />
       </TableRow>
@@ -55,13 +55,13 @@
 	<TextView
 	  android:id="@+id/textview_savg"
 	  android:text="@string/avgstock_price"
-	  android:textSize="12sp"
+	  android:textSize="16sp"
 	  android:layout_span="1" 
 	  />
 	<TextView
 	  android:id="@+id/textview_savg_v"
 	  android:text="@string/avgstock_price_val"
-	  android:textSize="12sp"
+	  android:textSize="16sp"
 	  android:layout_span="1" 
 	  />
       </TableRow>

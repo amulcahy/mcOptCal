@@ -126,6 +126,34 @@ void dgRandom::setSeed(long int s)
    seed = s;
 }
 
+class reporter
+{
+  private:
+    JNIEnv *env;
+    jobject calcObject;
+    jmethodID jniUpdateUIID;
+  public:
+    reporter(JNIEnv *env, jobject calcObject, jmethodID jniUpdateUIID);
+    bool reportAndPoll(jstring msg, int count, int total, timespec *tstart, timespec *tnow);
+};
+
+reporter::reporter(JNIEnv *e, jobject c, jmethodID j)
+{
+  env = e;
+  calcObject = c;
+  jniUpdateUIID = j;
+}
+
+bool reporter::reportAndPoll(jstring msg, int count, int total, timespec *tstart, timespec *tnow)
+{
+  bool abort = false;
+  clock_gettime(CLOCK_THREAD_CPUTIME_ID, tnow);
+  if (((tnow->tv_sec != tstart->tv_sec) || ((tnow->tv_nsec - tstart->tv_nsec)>200000000))) {
+    abort = env->CallBooleanMethod(calcObject, jniUpdateUIID, msg, count, total);
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, tstart);
+  }
+}
+
 
 double payOffFn(double savg, double strike)
 {
@@ -148,7 +176,9 @@ mcResult calcAsianOptionValue(
     double volatility,
     int uiUpdateInterval,
     double dT,
-    long int seed)
+    long int seed,
+    reporter r,
+    jstring msg )
 {
   dgRandom dgrng(seed);
 
@@ -169,6 +199,10 @@ mcResult calcAsianOptionValue(
   double s1, s2, avgX, avgY, payOffX, payOffY, deltaX, deltaY;
 
 
+  bool abort = false;
+  struct timespec tstart, tnow;
+  int total = static_cast<int>(numPaths/2);
+  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tstart);
   while (i < numPaths/2)
   {
     s1 = stock;
@@ -177,9 +211,17 @@ mcResult calcAsianOptionValue(
     avgY = 0.0D;
 
     int j = 0;
+    abort = r.reportAndPoll(msg, (total-i), total, &tstart, &tnow);
+    if (abort) {
+      mcResult result = 
+      {
+	0.0D,
+	0.0D
+      };
+      return result;
+    }
     while (j < numSteps)
     {
-      //dZ = env->CallDoubleMethod(rngObject, rngId);
       dZ = dgrng.msrngInvNormGaussian();
       exp_bdZ = exp(b*dZ);
       s1 = s1*exp_a*exp_bdZ;
@@ -246,7 +288,7 @@ extern "C" {
       jclass calcClass = env->GetObjectClass(calcObject);
       jclass paramsClass = env->GetObjectClass(paramsObject);
       jclass rngClass = env->GetObjectClass(rngObject);
-      jmethodID rngId = env->GetMethodID(rngClass, "nextGaussian", "()D");
+      //jmethodID rngId = env->GetMethodID(rngClass, "nextGaussian", "()D");
       jmethodID jniUpdateUIID = env->GetMethodID(calcClass, "jniUpdateUI", "(Ljava/lang/String;II)Z");
 
       jstring msg = env->NewStringUTF("msg from JNI"); //todo
@@ -262,6 +304,7 @@ extern "C" {
       jfieldID dTId = env->GetFieldID(paramsClass, "dT", "D");
       jfieldID seedId = env->GetFieldID(paramsClass, "rngSeed", "I");
 
+      reporter r(env, calcObject, jniUpdateUIID);
       int numPaths = env->GetIntField(paramsObject, numPathsId);
       int expiry = env->GetIntField(paramsObject, expiryId);
       int numSteps = env->GetIntField(paramsObject, numStepsId);
@@ -276,104 +319,7 @@ extern "C" {
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","dT= %lf \n", dT);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","seed = %d \n", seed);
 
-      dgRandom dgrng(seed);
-
-      double a = (rate - volatility*volatility*0.5D)*dT;
-      double b = volatility * sqrt(dT);
-      int i = 0;
-      int n = 0;
-      double mean = 0.0D;
-      double m2 = 0.0D;
-      double sum = 0.0D;
-      double x = 0.0D;
-      double y = 0.0D;
-      double pvDiscount = exp(-rate*expiry);
-      double exp_a = exp(a);
-
-      double dZ;
-      double exp_bdZ;
-      double s1, s2, avgX, avgY, payOffX, payOffY, deltaX, deltaY;
-
-
-      bool abort = false;
-      struct timespec tstart, tnow;
-      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tstart);
-      int total = static_cast<int>(numPaths/2);
-      while (i < numPaths/2)
-      {
-	s1 = stock;
-	s2 = stock;
-	avgX = 0.0D;
-	avgY = 0.0D;
-
-	int j = 0;
-	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tnow);
-	__android_log_print(ANDROID_LOG_INFO,"ASIAN","tnow_sec= %d \n", tnow.tv_sec);
-	if (((tnow.tv_sec != tstart.tv_sec) || ((tnow.tv_nsec - tstart.tv_nsec)>200000000))) {
-	  abort = env->CallBooleanMethod(calcObject, jniUpdateUIID, msg, (total-i), total);
-	  if (abort) {
-	    jdoubleArray resultArray = env->NewDoubleArray(2);
-	    jdouble *rAry = env->GetDoubleArrayElements(resultArray, NULL);
-	    rAry[0] = 0.0D;
-	    rAry[1] = 0.0D;
-	    return resultArray;
-	  }
-	  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tstart);
-	}
-	while (j < numSteps)
-	{
-	  //dZ = env->CallDoubleMethod(rngObject, rngId);
-	  dZ = dgrng.msrngInvNormGaussian();
-	  exp_bdZ = exp(b*dZ);
-	  s1 = s1*exp_a*exp_bdZ;
-	  s2 = s2*exp_a/exp_bdZ; // antithetic path
-
-	  avgX = avgX + s1/static_cast<double>(numSteps);
-	  avgY = avgY + s2/static_cast<double>(numSteps);
-
-	  j++;
-	}
-	payOffX = payOffFn(avgX, strike);
-	if (payOffX > 0.0D)
-	  x = payOffX*pvDiscount;
-	else
-	  x = 0.0D;
-
-	payOffY = payOffFn(avgY, strike);
-	if (payOffY > 0.0D)
-	  y = payOffY*pvDiscount;
-	else
-	  y = 0.0D;
-
-	sum = sum + x;
-	n += 1;
-	deltaX = x - mean;
-	mean += deltaX/static_cast<double>(n);
-	m2 += deltaX*(x - mean);
-
-	sum = sum + y;
-	n += 1;
-	deltaY = y - mean;
-	mean += deltaY/static_cast<double>(n);
-	m2 += deltaY*(y - mean);
-
-	i++;
-      }
-      __android_log_print(ANDROID_LOG_INFO,"ASIAN","finishing up\n");
-
-      double optionValue = sum / static_cast<double>(numPaths);
-      double variance = m2/static_cast<double>(n-1);
-      double sampStdDev = sqrt(variance);
-      double stdErr = sampStdDev/sqrt(static_cast<double>(numPaths));
-
-      mcResult result = 
-      {
-	optionValue,
-	stdErr
-      };
-
-      //return result;
-      /*mcResult result = calcAsianOptionValue(
+      mcResult result = calcAsianOptionValue(
 	  numPaths,
 	  expiry,
 	  numSteps,
@@ -383,7 +329,9 @@ extern "C" {
 	  volatility,
 	  uiUpdateInterval,
 	  dT,
-	  seed);*/
+	  seed,
+	  r,
+	  msg);
 
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","optionValue= %lf \n", optionValue);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","stdErr= %lf \n", stdErr);
