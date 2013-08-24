@@ -1,3 +1,6 @@
+#include <queue>
+#include <stack>
+#include <string>
 #include <math.h>
 #include <stdlib.h>
 #include <jni.h>
@@ -19,23 +22,39 @@ class dgRandom
     static double bsm_a[4];
     static double bsm_b[4];
     static double bsm_c[9];
+    bool antithetic;
+    bool hasGaussianCache;
+    double gaussianCache;
   public:
+    dgRandom(int _seed, bool _antithetic);
     dgRandom(int _seed);
     dgRandom();
     double msrng();
     double bsmInvNormal(double u);
     double msrngInvNormGaussian();
-    void setSeed(long int s);
+    void setSeed(long int _seed);
+    void setAntithetic(bool _antithetic);
 };
+
+dgRandom::dgRandom(int _seed, bool _antithetic)
+{
+  init(_seed);
+  antithetic = _antithetic;
+  hasGaussianCache = false;
+}
 
 dgRandom::dgRandom(int _seed)
 {
   init(_seed);
+  antithetic = false;
+  hasGaussianCache = false;
 }
 
 dgRandom::dgRandom()
 {
   init(rand()); // todo rand()
+  antithetic = false;
+  hasGaussianCache = false;
 }
 
 void dgRandom::init(int _seed)
@@ -118,12 +137,28 @@ double dgRandom::bsmInvNormal(double u)
 
 double dgRandom::msrngInvNormGaussian()
 {
+  /*if (antithetic) {
+    if (hasGaussianCache) {
+      hasGaussianCache = false;
+      return gaussianCache;
+    } else {
+      double newGaussian = bsmInvNormal(msrng());
+      gaussianCache = -newGaussian;
+      hasGaussianCache = true;
+      return newGaussian;
+    }
+  } else*/
   return bsmInvNormal(msrng());
 }
 
-void dgRandom::setSeed(long int s)
+void dgRandom::setSeed(long int _seed)
 {
-   seed = s;
+   seed = _seed;
+}
+
+void dgRandom::setAntithetic(bool _antithetic)
+{
+   antithetic = _antithetic;
 }
 
 class reporter
@@ -155,10 +190,139 @@ bool reporter::reportAndPoll(jstring msg, int count, int total, timespec *tstart
 }
 
 
+double payOffFnParse(JNIEnv *env, const jstring& exprStr)
+{
+  using namespace std;
+
+  __android_log_print(ANDROID_LOG_INFO,"ASIAN","payOffFnParse_start");
+  queue<jchar> outputQueue;
+  stack<jchar> operatorStack;
+
+  int i = 0;
+  int length = env->GetStringLength(exprStr);
+
+  const jchar* chars = env->GetStringChars(exprStr, NULL);
+  while (i < length) {
+    char token = chars[i];
+    switch (token)
+    {
+      case '1':
+	outputQueue.push(token);
+	break;
+      case '+':
+	operatorStack.push(token);
+	break;
+    }
+    i++;
+  }
+  while (!operatorStack.empty()) {
+    char op = operatorStack.top();
+    operatorStack.pop();
+    outputQueue.push(op);
+  }
+
+  env->ReleaseStringChars(exprStr, chars);
+
+  stack<int> rpnStack;
+  while (!outputQueue.empty()) {
+    char token = outputQueue.front();
+    outputQueue.pop();
+    __android_log_print(ANDROID_LOG_INFO,"ASIAN"," %c", token);
+    switch (token)
+    {
+      case '1':
+	rpnStack.push(1);
+	break;
+      case '+':
+	int val_1 = rpnStack.top();
+	rpnStack.pop();
+	int val_2 = rpnStack.top();
+	rpnStack.pop();
+	rpnStack.push(val_1+val_2);
+	break;
+    }
+  }
+  int result = rpnStack.top();
+  rpnStack.pop();
+  __android_log_print(ANDROID_LOG_INFO,"ASIAN","result = %d", result);
+
+  __android_log_print(ANDROID_LOG_INFO,"ASIAN","payOffFnParse_end");
+
+  return 0.1D;
+}
+
 double payOffFn(double savg, double strike)
 {
   return (savg - strike);
 }
+
+bool isSymbol(std::string token)
+{
+  return (token.compare("SAVG") == 0) || (token.compare("S") == 0);
+}
+
+double getNumber(std::string token)
+{
+  return atof(token.c_str()); // todo error check
+}
+
+bool isAddOp(std::string token)
+{
+  return (token.compare("+") == 0);
+}
+
+bool isSubOp(std::string token)
+{
+  return (token.compare("-") == 0);
+}
+
+bool isOperator(std::string token)
+{
+  return (token.compare("+") == 0) || (token.compare("-") == 0);
+}
+
+// ref: http://en.wikipedia.org/wiki/Reverse_Polish_notation
+double rpnPayOffFn(double savg, std::deque<std::string> rpnPostfixDeque )
+{
+  //std::queue<std::string> postfixQueue = rpnPostfixDeque;
+  std::stack<double> valueStack;
+  bool hasError = false;
+  double payOff = NAN;
+  int i = 0;
+  while ((i < rpnPostfixDeque.size()) && !hasError) {
+    std::string token = rpnPostfixDeque[i];
+    if (isSymbol(token)) {
+      valueStack.push(savg);
+    } else if (isOperator(token)) {
+      if (isAddOp(token)) {
+	if (valueStack.size() < 2)
+	  hasError = true;
+	double val_1 = valueStack.top();
+	valueStack.pop();
+	double val_2 = valueStack.top();
+	valueStack.pop();
+	valueStack.push(val_1+val_2);
+      } else if (isSubOp(token)) {
+	if (valueStack.size() < 2)
+	  hasError = true;
+	double val_1 = valueStack.top();
+	valueStack.pop();
+	double val_2 = valueStack.top();
+	valueStack.pop();
+	valueStack.push(val_1-val_2);
+      }
+    } else { // todo verify that it is a number
+      double value = atof(token.c_str());
+      valueStack.push(value);
+    }
+    i++;
+  }
+  if ((valueStack.size() == 1) && !hasError)
+    payOff = valueStack.top();
+
+  return payOff;
+}
+
 
 struct mcResult 
 {
@@ -178,7 +342,8 @@ mcResult calcAsianOptionValue(
     double dT,
     long int seed,
     reporter r,
-    jstring msg )
+    jstring msg,
+    std::deque<std::string> rpnPostfixDeque )
 {
   dgRandom dgrng(seed);
 
@@ -198,12 +363,11 @@ mcResult calcAsianOptionValue(
   double exp_bdZ;
   double s1, s2, avgX, avgY, payOffX, payOffY, deltaX, deltaY;
 
-
   bool abort = false;
   struct timespec tstart, tnow;
   int total = static_cast<int>(numPaths/2);
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tstart);
-  while (i < numPaths/2)
+  while (i < total)
   {
     s1 = stock;
     s2 = stock;
@@ -232,23 +396,24 @@ mcResult calcAsianOptionValue(
 
       j++;
     }
-    payOffX = payOffFn(avgX, strike);
+
+    payOffX = rpnPayOffFn(avgX, rpnPostfixDeque);
     if (payOffX > 0.0D)
       x = payOffX*pvDiscount;
     else
       x = 0.0D;
-
-    payOffY = payOffFn(avgY, strike);
-    if (payOffY > 0.0D)
-      y = payOffY*pvDiscount;
-    else
-      y = 0.0D;
 
     sum = sum + x;
     n += 1;
     deltaX = x - mean;
     mean += deltaX/static_cast<double>(n);
     m2 += deltaX*(x - mean);
+
+    payOffY = rpnPayOffFn(avgY, rpnPostfixDeque);
+    if (payOffY > 0.0D)
+      y = payOffY*pvDiscount;
+    else
+      y = 0.0D;
 
     sum = sum + y;
     n += 1;
@@ -278,12 +443,29 @@ extern "C" {
   /*
    * Class:     com_dragongate_technologies_mcOptCal_lsm
    * Method:    calcAsianOptionValueJNI
-   * Signature: (Lcom/dragongate_technologies/mcOptCal/LsmParams;Lscala/util/Random;)[D
+   * Signature: (Lcom/dragongate_technologies/mcOptCal/Calc;Lcom/dragongate_technologies/mcOptCal/LsmParams;Lscala/util/Random;[Ljava/lang/String;)[D
    */
   JNIEXPORT jdoubleArray JNICALL Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI
-    (JNIEnv *env, jobject obj, jobject calcObject, jobject paramsObject, jobject rngObject)
+    (JNIEnv *env, jobject obj, jobject calcObject, jobject paramsObject, jobject rngObject, jobjectArray rpnAry)
     {
       __android_log_print(ANDROID_LOG_INFO,"ASIAN","Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI");
+
+      jsize rpnAryLength = env->GetArrayLength(rpnAry);
+      std::deque<std::string> postfixDeque;
+      int i=rpnAryLength;
+      while (i > 0) {
+	i--;
+
+        jstring jniString = (jstring)env->GetObjectArrayElement(rpnAry, i);
+	const jsize strLength = env->GetStringUTFLength(jniString);
+	const char* strChars = env->GetStringUTFChars(jniString, (jboolean *)0);
+	std::string token(strChars, strLength);
+	env->ReleaseStringUTFChars(jniString, strChars);
+
+	postfixDeque.push_back(token);
+	//postfixQueue.push(token);
+	__android_log_print(ANDROID_LOG_INFO,"ASIAN","rpnTokenString = %s", token.c_str());
+      }
 
       jclass calcClass = env->GetObjectClass(calcObject);
       jclass paramsClass = env->GetObjectClass(paramsObject);
@@ -316,6 +498,8 @@ extern "C" {
       double dT = env->GetDoubleField(paramsObject, dTId);
       long int seed = env->GetIntField(paramsObject, seedId);
 
+      //jstring expr = env->NewStringUTF("1+1+1");
+      //payOffFnParse(env, expr);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","dT= %lf \n", dT);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","seed = %d \n", seed);
 
@@ -331,7 +515,8 @@ extern "C" {
 	  dT,
 	  seed,
 	  r,
-	  msg);
+	  msg,
+	  postfixDeque );
 
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","optionValue= %lf \n", optionValue);
       //__android_log_print(ANDROID_LOG_INFO,"ASIAN","stdErr= %lf \n", stdErr);

@@ -49,6 +49,7 @@ import scala.actors._
 import scala.annotation.tailrec
 import scala.collection.parallel.immutable._
 import scala.collection.parallel.mutable._
+import scala.collection.mutable.Stack
 import scala.concurrent.ops._
 import scala.util.parsing.combinator._
 import scala.util.Random
@@ -502,12 +503,13 @@ case class LsmParams(
 
 class lsm {
 
-  @native def calcAsianOptionValueJNI(calcObj: Calc, params: LsmParams, rng: Random): Array[Double]
+  @native def calcAsianOptionValueJNI(calcObj: Calc, params: LsmParams, rng: Random, rpn: Array[String]): Array[Double]
 
 }
 
 object lsm {
   type PayoffFn = (Double, Double, LsmParams) => Double
+  type RPNStack = Stack[String]
   import Matrix._
   private val TAG: String = "lsm"
 
@@ -1067,6 +1069,93 @@ object lsm {
   case class FunctionOp(fn: Function, arg: Eqn) extends Eqn { override def toString = "["+fn+"]["+arg+"]" }
   case class ArithmeticOp(arg1: Eqn, op: Operator, arg2: Eqn) extends Eqn { override def toString = "["+arg1+"]["+op+"]["+arg2+"]" }
   case class BracketedOp(arg: Eqn) extends Eqn { override def toString = "["+arg+"]" }
+
+  trait RPNEqn
+  case class RPNOperator(str: String) extends RPNEqn { override def toString = str }
+  case class RPNFunction(str: String) extends RPNEqn { override def toString = str }
+  case class RPNNumber(value: Double) extends RPNEqn { override def toString = value.toString }
+  case class RPNSymbol(str: String) extends RPNEqn { override def toString = str }
+  case class RPNErrorText(str: String) extends RPNEqn { override def toString = str }
+  case class RPNFunctionOp(fn: RPNFunction, arg: RPNEqn) extends RPNEqn { override def toString = "["+fn+"]["+arg+"]" }
+  case class RPNArithmeticOp(arg1: RPNEqn, op: RPNOperator, arg2: RPNEqn) extends RPNEqn { override def toString = "["+arg1+"]["+op+"]["+arg2+"]" }
+  case class RPNBracketedOp(arg: RPNEqn) extends RPNEqn { override def toString = "["+arg+"]" }
+
+  object EqnRPNParser extends RegexParsers {
+
+    val functions = new collection.mutable.HashMap[RPNFunction, String]
+    functions += (
+      RPNFunction("exp") -> { "exp" } )
+    val rpnoperations = new collection.mutable.HashMap[RPNOperator, String]
+    rpnoperations += (
+      RPNOperator("+") -> { "+" },
+      RPNOperator("-") -> { "-" },
+      RPNOperator("*") -> { "*" },
+      RPNOperator("/") -> { "/" } )
+
+    def rpnParseEval(input: String, params: LsmParams): RPNStack = {
+      val eqn = rpnParse(input)
+      println("rpnParseEval called with input: "+input)
+      evaluate(eqn, params)
+    }
+
+    def evaluate(e: RPNEqn, params: LsmParams): RPNStack = try {
+      var stack = new RPNStack
+      //var stack = new scala.collection.mutable.Stack[String] 
+      e match {
+        case RPNNumber(v) => { stack.push(v.toString) }
+        case RPNSymbol(p) => {
+          p match {
+            case "T" => stack.push(params.expiry.toString)
+            case "S0" => stack.push(params.stock.toString)
+            case "K" => stack.push(params.strike.toString)
+            case "R" => stack.push(params.rate.toString)
+            case "V" => stack.push(params.volatility.toString)
+            case "S" => stack.push("S")
+            case "SAVG" => stack.push("SAVG")
+            // todo case "SMAX" => 
+            // todo case "SMIN" => 
+          }
+        }
+        case RPNFunctionOp(fn, arg) => {
+          stack = stack ++ evaluate(arg, params)
+        }
+        case RPNArithmeticOp(arg1, op, arg2) => { 
+          stack = (stack ++ evaluate(arg1, params)) ++ evaluate(arg2, params)
+          stack.push(rpnoperations(op))
+        }
+        case RPNBracketedOp(arg) => { 
+          stack = stack ++ evaluate(arg, params)
+        }
+      }
+      stack
+    } catch {
+      //val stack = new RPNStack
+      case ex: Exception => {
+        val stack = new scala.collection.mutable.Stack[String] 
+        println("ex: "+ex)
+        stack.push(Double.NaN.toString)
+        stack
+      }
+    }
+
+    def function: Parser[RPNFunction] = """exp""".r ^^ (f => RPNFunction(f))
+    def number: Parser[RPNNumber] = """-?\d+(\.\d*)?""".r ^^ (d => RPNNumber(d.toDouble))
+    def operator: Parser[RPNOperator] = """[+|\-|*|/]""".r ^^ (s => RPNOperator(s))
+    def symbol: Parser[RPNSymbol] = """(T|S0|SAVG|S|K|R|V)""".r ^^ (s => RPNSymbol(s))
+
+    def operand: Parser[RPNEqn] = number | symbol | functionop | bracketedop
+
+    def arithmeticop: Parser[RPNArithmeticOp] = operand~operator~operand ^^ { case arg1~op~arg2 => RPNArithmeticOp(arg1, op, arg2) }
+    def functionop: Parser[RPNFunctionOp] = function~"("~operand~")" ^^ { case fn~"("~arg~")" => RPNFunctionOp(fn, arg) }
+    def bracketedop: Parser[RPNEqn] = "("~(arithmeticop | operand)~")" ^^ { case "("~arg~")" => RPNBracketedOp(arg) }
+
+    def rpnFormula: Parser[RPNEqn] = arithmeticop | bracketedop | functionop
+
+    def rpnParse(input: String): RPNEqn = parseAll(rpnFormula, input) match {
+      case Success(e, _) => e
+      case f: NoSuccess => RPNErrorText("NoSuccess: ["+f.msg+"]")
+    }
+  }
 
   object EqnParsers extends RegexParsers {
 

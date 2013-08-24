@@ -109,11 +109,14 @@ class Calc extends Actor {
           val calc: Calc = this
           if (jniFlag) {
             // JNI version
+            val rpn = lsm.EqnRPNParser.rpnParseEval("SAVG-K", lsmCalcParams.params)
+            Log.d(TAG, "RPN = "+rpn)
+            val rpnAry = rpn.toArray
             Log.d("ASIAN", "calling native calcAsianOptionValueJNI")
             val startTime = System.nanoTime
             val lsmJNI = new lsm
             Log.d("ASIAN", "lsmCalcParams.params"+lsmCalcParams.params)
-            val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(calc, lsmCalcParams.params, lsm.rng)
+            val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(calc, lsmCalcParams.params, lsm.rng, rpnAry)
             val endTime = System.nanoTime
             Log.d("ASIAN", "calcAsianOptionValueJNI = "+asianOVJNI)
             callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
@@ -970,6 +973,7 @@ class MainActivity extends Activity with TypedActivity {
                     val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
 
                     val eqn = lsm.EqnParsers.parse(payoffFnStr)
+
                     eqn match {
                       case lsm.ErrorText(e) => {
                         Log.d(TAG, e )

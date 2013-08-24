@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     com_dragongate_technologies_mcOptCal_lsm
  * Method:    calcAsianOptionValueJNI
- * Signature: (Lcom/dragongate_technologies/mcOptCal/Calc;Lcom/dragongate_technologies/mcOptCal/LsmParams;Lscala/util/Random;)[D
+ * Signature: (Lcom/dragongate_technologies/mcOptCal/Calc;Lcom/dragongate_technologies/mcOptCal/LsmParams;Lscala/util/Random;[Ljava/lang/String;)[D
  */
 JNIEXPORT jdoubleArray JNICALL Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI
-  (JNIEnv *, jobject, jobject, jobject, jobject);
+  (JNIEnv *, jobject, jobject, jobject, jobject, jobjectArray);
 
 #ifdef __cplusplus
 }
@@ -67,6 +67,17 @@ extern "C" {
 
 #ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_Symbol__
 #define _Included_com_dragongate_technologies_mcOptCal_lsm_Symbol__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNEqn */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNEqn
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNEqn
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -140,6 +151,50 @@ extern "C" {
 }
 #endif
 #endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNNumber */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNNumber
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNNumber
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNNumber__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNNumber__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNNumber__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNSymbol */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNSymbol
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNSymbol
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNSymbol__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNSymbol__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNSymbol__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
 /* Header for class com_dragongate_technologies_mcOptCal_lsm_FunctionOp */
 
 #ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_FunctionOp
@@ -195,6 +250,50 @@ extern "C" {
 }
 #endif
 #endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNOperator */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNOperator
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNOperator
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNOperator__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNOperator__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNOperator__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNFunction */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunction
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunction
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNFunction__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunction__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunction__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
 /* Header for class com_dragongate_technologies_mcOptCal_lsm_ArithmeticOp */
 
 #ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_ArithmeticOp
@@ -210,6 +309,105 @@ extern "C" {
 
 #ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_ArithmeticOp__
 #define _Included_com_dragongate_technologies_mcOptCal_lsm_ArithmeticOp__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNErrorText */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNErrorText
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNErrorText
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNErrorText__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNErrorText__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNErrorText__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_EqnRPNParser__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_EqnRPNParser__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_EqnRPNParser__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNFunctionOp */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunctionOp
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunctionOp
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNFunctionOp__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunctionOp__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNFunctionOp__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNBracketedOp */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNBracketedOp
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNBracketedOp
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNBracketedOp__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNBracketedOp__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNBracketedOp__
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNArithmeticOp */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNArithmeticOp
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNArithmeticOp
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_dragongate_technologies_mcOptCal_lsm_RPNArithmeticOp__ */
+
+#ifndef _Included_com_dragongate_technologies_mcOptCal_lsm_RPNArithmeticOp__
+#define _Included_com_dragongate_technologies_mcOptCal_lsm_RPNArithmeticOp__
 #ifdef __cplusplus
 extern "C" {
 #endif
