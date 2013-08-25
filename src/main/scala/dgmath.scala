@@ -456,6 +456,7 @@ object Matrix {
   * @param threshold todo
   * @param uiUpdateInterval todo
   * @param rngSeed todo
+  * @param antithetic todo
   * @param dataDir: File = new File("/home/anthony/scala_work/mcTempFiles/")
   * 
   * @note dT = expiry / numSteps
@@ -481,6 +482,7 @@ case class LsmParams(
    * dT = expiry / numSteps
    */
   val dT: Double = expiry.toDouble / numSteps.toDouble
+  val antithetic = true; //todo
 
   override def toString(): String = {
     val strB = new StringBuilder
@@ -496,6 +498,7 @@ case class LsmParams(
     strB.append(" R:\t"+(formatStr.format(rate))+"\n")
     strB.append(" V:\t"+(formatStr.format(volatility))+"\n")
     strB.append(" rngSeed:  "+rngSeed+"\n")
+    strB.append(" jniFlag:  todo"+"\n")
     strB.append("]\n")
     strB.result
   }

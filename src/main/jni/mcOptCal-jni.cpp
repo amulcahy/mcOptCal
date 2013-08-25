@@ -1,7 +1,7 @@
-#include <queue>
+#include <deque>
 #include <stack>
 #include <string>
-#include <math.h>
+#include <cmath>
 #include <stdlib.h>
 #include <jni.h>
 #include <time.h>
@@ -9,7 +9,13 @@
 
 #include "mcOptCal-jni.h"
 
-
+/**
+ * Minimal Standard Random Number Generator
+ * Ref: "Random Number Generators: Good Ones Are Hard To Find", Park & Miller
+ *
+ * Beasley-Springer-Moro algorithm for approximating the inverse normal
+ * Ref: "Monte Carlo Methods in Financial Engineering", Glasserman
+ */
 class dgRandom
 {
   private:
@@ -17,53 +23,80 @@ class dgRandom
     long int m;
     long q;
     long r;
-    long int seed;
-    void init(int _seed);
+    long int rngSeed;
+    void init(int seed);
     static double bsm_a[4];
     static double bsm_b[4];
     static double bsm_c[9];
-    bool antithetic;
-    bool hasGaussianCache;
-    double gaussianCache;
   public:
-    dgRandom(int _seed, bool _antithetic);
-    dgRandom(int _seed);
+    dgRandom(int seed);
     dgRandom();
     double msrng();
     double bsmInvNormal(double u);
     double msrngInvNormGaussian();
-    void setSeed(long int _seed);
-    void setAntithetic(bool _antithetic);
+    void setSeed(long int seed);
 };
 
-dgRandom::dgRandom(int _seed, bool _antithetic)
+class reporter
 {
-  init(_seed);
-  antithetic = _antithetic;
-  hasGaussianCache = false;
-}
+  private:
+    JNIEnv *env;
+    jobject calcObject;
+    jmethodID jniUpdateUIID;
+    int uiUpdateInterval;
+  public:
+    reporter(JNIEnv *env, jobject calcObject, jmethodID jniUpdateUIID, int uiUpdateInterval);
+    bool reportAndPoll(jstring msg, int count, int total, timespec *tstart, timespec *tnow);
+};
 
-dgRandom::dgRandom(int _seed)
+bool isSymbol(std::string token);
+double getNumber(std::string token);
+bool isAddOp(std::string token);
+bool isSubOp(std::string token);
+bool isOperator(std::string token);
+double rpnPayOffFn(double savg, std::deque<std::string> rpnPostfixDeque);
+
+struct mcResult 
 {
-  init(_seed);
-  antithetic = false;
-  hasGaussianCache = false;
+  double optionValue;
+  double stdErr;
+};
+
+mcResult calcAsianOptionValue(
+    int numPaths,
+    int expiry,
+    int numSteps,
+    double stock,
+    double strike,
+    double rate,
+    double volatility,
+    int uiUpdateInterval,
+    double dT,
+    long int seed,
+    bool antithetic,
+    reporter r,
+    jstring msg,
+    std::deque<std::string> rpnPostfixDeque);
+
+
+/**********************************************************************/
+dgRandom::dgRandom(int seed)
+{
+  init(seed);
 }
 
 dgRandom::dgRandom()
 {
   init(rand()); // todo rand()
-  antithetic = false;
-  hasGaussianCache = false;
 }
 
-void dgRandom::init(int _seed)
+void dgRandom::init(int seed)
 {
   a = 16807;
   m = 2147483647;
   q = (m / a);
   r = (m % a);
-  seed = _seed;
+  rngSeed = seed;
 }
 
 /**
@@ -72,14 +105,14 @@ void dgRandom::init(int _seed)
  */
 double dgRandom::msrng()
 {
-  long int hi = seed / q;
-  long int lo = seed % q;
+  long int hi = rngSeed / q;
+  long int lo = rngSeed % q;
   long int test = a * lo - r * hi;
   if(test > 0)
-    seed = test;
+    rngSeed = test;
   else
-    seed = test + m;
-  return static_cast<double>(seed) / m;
+    rngSeed = test + m;
+  return static_cast<double>(rngSeed) / m;
 }
 
 double dgRandom::bsm_a[] = 
@@ -137,124 +170,32 @@ double dgRandom::bsmInvNormal(double u)
 
 double dgRandom::msrngInvNormGaussian()
 {
-  /*if (antithetic) {
-    if (hasGaussianCache) {
-      hasGaussianCache = false;
-      return gaussianCache;
-    } else {
-      double newGaussian = bsmInvNormal(msrng());
-      gaussianCache = -newGaussian;
-      hasGaussianCache = true;
-      return newGaussian;
-    }
-  } else*/
   return bsmInvNormal(msrng());
 }
 
-void dgRandom::setSeed(long int _seed)
+void dgRandom::setSeed(long int seed)
 {
-   seed = _seed;
+   rngSeed = seed;
 }
 
-void dgRandom::setAntithetic(bool _antithetic)
-{
-   antithetic = _antithetic;
-}
-
-class reporter
-{
-  private:
-    JNIEnv *env;
-    jobject calcObject;
-    jmethodID jniUpdateUIID;
-  public:
-    reporter(JNIEnv *env, jobject calcObject, jmethodID jniUpdateUIID);
-    bool reportAndPoll(jstring msg, int count, int total, timespec *tstart, timespec *tnow);
-};
-
-reporter::reporter(JNIEnv *e, jobject c, jmethodID j)
+reporter::reporter(JNIEnv *e, jobject c, jmethodID j, int u)
 {
   env = e;
   calcObject = c;
   jniUpdateUIID = j;
+  uiUpdateInterval = u;
 }
 
 bool reporter::reportAndPoll(jstring msg, int count, int total, timespec *tstart, timespec *tnow)
 {
   bool abort = false;
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, tnow);
-  if (((tnow->tv_sec != tstart->tv_sec) || ((tnow->tv_nsec - tstart->tv_nsec)>200000000))) {
+  if (((tnow->tv_sec != tstart->tv_sec) || ((tnow->tv_nsec - tstart->tv_nsec) > uiUpdateInterval))) {
     abort = env->CallBooleanMethod(calcObject, jniUpdateUIID, msg, count, total);
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, tstart);
   }
 }
 
-
-double payOffFnParse(JNIEnv *env, const jstring& exprStr)
-{
-  using namespace std;
-
-  __android_log_print(ANDROID_LOG_INFO,"ASIAN","payOffFnParse_start");
-  queue<jchar> outputQueue;
-  stack<jchar> operatorStack;
-
-  int i = 0;
-  int length = env->GetStringLength(exprStr);
-
-  const jchar* chars = env->GetStringChars(exprStr, NULL);
-  while (i < length) {
-    char token = chars[i];
-    switch (token)
-    {
-      case '1':
-	outputQueue.push(token);
-	break;
-      case '+':
-	operatorStack.push(token);
-	break;
-    }
-    i++;
-  }
-  while (!operatorStack.empty()) {
-    char op = operatorStack.top();
-    operatorStack.pop();
-    outputQueue.push(op);
-  }
-
-  env->ReleaseStringChars(exprStr, chars);
-
-  stack<int> rpnStack;
-  while (!outputQueue.empty()) {
-    char token = outputQueue.front();
-    outputQueue.pop();
-    __android_log_print(ANDROID_LOG_INFO,"ASIAN"," %c", token);
-    switch (token)
-    {
-      case '1':
-	rpnStack.push(1);
-	break;
-      case '+':
-	int val_1 = rpnStack.top();
-	rpnStack.pop();
-	int val_2 = rpnStack.top();
-	rpnStack.pop();
-	rpnStack.push(val_1+val_2);
-	break;
-    }
-  }
-  int result = rpnStack.top();
-  rpnStack.pop();
-  __android_log_print(ANDROID_LOG_INFO,"ASIAN","result = %d", result);
-
-  __android_log_print(ANDROID_LOG_INFO,"ASIAN","payOffFnParse_end");
-
-  return 0.1D;
-}
-
-double payOffFn(double savg, double strike)
-{
-  return (savg - strike);
-}
 
 bool isSymbol(std::string token)
 {
@@ -282,9 +223,8 @@ bool isOperator(std::string token)
 }
 
 // ref: http://en.wikipedia.org/wiki/Reverse_Polish_notation
-double rpnPayOffFn(double savg, std::deque<std::string> rpnPostfixDeque )
+double rpnPayOffFn(double savg, std::deque<std::string> rpnPostfixDeque)
 {
-  //std::queue<std::string> postfixQueue = rpnPostfixDeque;
   std::stack<double> valueStack;
   bool hasError = false;
   double payOff = NAN;
@@ -323,13 +263,6 @@ double rpnPayOffFn(double savg, std::deque<std::string> rpnPostfixDeque )
   return payOff;
 }
 
-
-struct mcResult 
-{
-  double optionValue;
-  double stdErr;
-};
-
 mcResult calcAsianOptionValue(
     int numPaths,
     int expiry,
@@ -341,9 +274,10 @@ mcResult calcAsianOptionValue(
     int uiUpdateInterval,
     double dT,
     long int seed,
+    bool antithetic,
     reporter r,
     jstring msg,
-    std::deque<std::string> rpnPostfixDeque )
+    std::deque<std::string> rpnPostfixDeque)
 {
   dgRandom dgrng(seed);
 
@@ -365,14 +299,20 @@ mcResult calcAsianOptionValue(
 
   bool abort = false;
   struct timespec tstart, tnow;
-  int total = static_cast<int>(numPaths/2);
+  int total;
+  if (antithetic)
+    total = static_cast<int>(numPaths/2);
+  else
+    total = numPaths;
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tstart);
   while (i < total)
   {
     s1 = stock;
-    s2 = stock;
     avgX = 0.0D;
-    avgY = 0.0D;
+    if (antithetic) {
+      s2 = stock;
+      avgY = 0.0D;
+    }
 
     int j = 0;
     abort = r.reportAndPoll(msg, (total-i), total, &tstart, &tnow);
@@ -389,10 +329,12 @@ mcResult calcAsianOptionValue(
       dZ = dgrng.msrngInvNormGaussian();
       exp_bdZ = exp(b*dZ);
       s1 = s1*exp_a*exp_bdZ;
-      s2 = s2*exp_a/exp_bdZ; // antithetic path
-
       avgX = avgX + s1/static_cast<double>(numSteps);
-      avgY = avgY + s2/static_cast<double>(numSteps);
+
+      if (antithetic) {
+	s2 = s2*exp_a/exp_bdZ; // antithetic path
+	avgY = avgY + s2/static_cast<double>(numSteps);
+      }
 
       j++;
     }
@@ -409,17 +351,19 @@ mcResult calcAsianOptionValue(
     mean += deltaX/static_cast<double>(n);
     m2 += deltaX*(x - mean);
 
-    payOffY = rpnPayOffFn(avgY, rpnPostfixDeque);
-    if (payOffY > 0.0D)
-      y = payOffY*pvDiscount;
-    else
-      y = 0.0D;
+    if (antithetic) {
+      payOffY = rpnPayOffFn(avgY, rpnPostfixDeque);
+      if (payOffY > 0.0D)
+	y = payOffY*pvDiscount;
+      else
+	y = 0.0D;
 
-    sum = sum + y;
-    n += 1;
-    deltaY = y - mean;
-    mean += deltaY/static_cast<double>(n);
-    m2 += deltaY*(y - mean);
+      sum = sum + y;
+      n += 1;
+      deltaY = y - mean;
+      mean += deltaY/static_cast<double>(n);
+      m2 += deltaY*(y - mean);
+    }
 
     i++;
   }
@@ -463,7 +407,6 @@ extern "C" {
 	env->ReleaseStringUTFChars(jniString, strChars);
 
 	postfixDeque.push_back(token);
-	//postfixQueue.push(token);
 	__android_log_print(ANDROID_LOG_INFO,"ASIAN","rpnTokenString = %s", token.c_str());
       }
 
@@ -485,8 +428,8 @@ extern "C" {
       jfieldID uiUpdateIntervalId = env->GetFieldID(paramsClass, "uiUpdateInterval", "I");
       jfieldID dTId = env->GetFieldID(paramsClass, "dT", "D");
       jfieldID seedId = env->GetFieldID(paramsClass, "rngSeed", "I");
+      jfieldID antitheticId = env->GetFieldID(paramsClass, "antithetic", "Z");
 
-      reporter r(env, calcObject, jniUpdateUIID);
       int numPaths = env->GetIntField(paramsObject, numPathsId);
       int expiry = env->GetIntField(paramsObject, expiryId);
       int numSteps = env->GetIntField(paramsObject, numStepsId);
@@ -497,11 +440,9 @@ extern "C" {
       int uiUpdateInterval = env->GetIntField(paramsObject, uiUpdateIntervalId);
       double dT = env->GetDoubleField(paramsObject, dTId);
       long int seed = env->GetIntField(paramsObject, seedId);
+      bool antithetic = env->GetBooleanField(paramsObject, antitheticId);
 
-      //jstring expr = env->NewStringUTF("1+1+1");
-      //payOffFnParse(env, expr);
-      //__android_log_print(ANDROID_LOG_INFO,"ASIAN","dT= %lf \n", dT);
-      //__android_log_print(ANDROID_LOG_INFO,"ASIAN","seed = %d \n", seed);
+      reporter r(env, calcObject, jniUpdateUIID, uiUpdateInterval*1000000);
 
       mcResult result = calcAsianOptionValue(
 	  numPaths,
@@ -514,6 +455,7 @@ extern "C" {
 	  uiUpdateInterval,
 	  dT,
 	  seed,
+	  antithetic,
 	  r,
 	  msg,
 	  postfixDeque );

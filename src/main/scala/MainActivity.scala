@@ -789,7 +789,7 @@ class MainActivity extends Activity with TypedActivity {
     params
   }
   
-  private def updateSettingsStateData(jniFlag: Boolean, uiUpdateInterval: Int) {
+  private def updateSettingsStateData(uiUpdateInterval: Int) {
     val stateData = StateData.restoreFromPreferences(getApplicationContext)
     val newStateData = StateData(
       stateData.payoffFnStr,
@@ -803,7 +803,7 @@ class MainActivity extends Activity with TypedActivity {
       stateData.numSamples,
       stateData.threshold,
       uiUpdateInterval, 
-      jniFlag,
+      stateData.jniFlag,
       stateData.rngSeed )
     newStateData.saveToSharedPreferences(getApplicationContext)
   }
@@ -839,7 +839,8 @@ class MainActivity extends Activity with TypedActivity {
     exercisePrice: Double,
     riskFreeRate: Double,
     volatility: Double,
-    rngSeed: Int ) {
+    rngSeed: Int,
+    jniFlag: Boolean ) {
     val stateData = StateData.restoreFromPreferences(getApplicationContext)
     val newStateData = StateData(
       payoffFnStr,
@@ -853,7 +854,7 @@ class MainActivity extends Activity with TypedActivity {
       stateData.numSamples,
       stateData.threshold,
       stateData.uiUpdateInterval,
-      stateData.jniFlag,
+      jniFlag,
       rngSeed )
     newStateData.saveToSharedPreferences(getApplicationContext)
   }
@@ -925,6 +926,14 @@ class MainActivity extends Activity with TypedActivity {
               val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
               val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
               val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
+              val jniFlag = {
+                val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
+                val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
+                if (scala_jni == "JNI")
+                  true
+                else
+                  false
+              }
 
               val eqn = lsm.EqnParsers.parse(payoffFnStr)
               eqn match {
@@ -937,7 +946,7 @@ class MainActivity extends Activity with TypedActivity {
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                   updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
-                    exercisePrice, riskFreeRate, volatility, rngSeed)
+                    exercisePrice, riskFreeRate, volatility, rngSeed, jniFlag)
 
                   val params = positiveBtnClk( dialog, textEntryView )
 
@@ -971,6 +980,14 @@ class MainActivity extends Activity with TypedActivity {
                     val numPaths = textEntryView.findViewById(R.id.editTextNumPaths).asInstanceOf[EditText].getText().toString.toInt
                     val numSteps = textEntryView.findViewById(R.id.edittext6).asInstanceOf[EditText].getText().toString.toInt
                     val rngSeed = textEntryView.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].getText().toString.toInt
+                    val jniFlag = {
+                      val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
+                      val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
+                      if (scala_jni == "JNI")
+                        true
+                      else
+                        false
+                    }
 
                     val eqn = lsm.EqnParsers.parse(payoffFnStr)
 
@@ -983,7 +1000,7 @@ class MainActivity extends Activity with TypedActivity {
                         textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                         updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
-                          exercisePrice, riskFreeRate, volatility, rngSeed)
+                          exercisePrice, riskFreeRate, volatility, rngSeed, jniFlag)
 
                         val params = positiveBtnClk( asianParamsDialog, textEntryView )
 
@@ -1032,7 +1049,7 @@ class MainActivity extends Activity with TypedActivity {
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                   updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
-                    exercisePrice, riskFreeRate, volatility, rngSeed)
+                    exercisePrice, riskFreeRate, volatility, rngSeed, false)
 
                   val params = positiveBtnClk( dialog, textEntryView )
 
@@ -1077,7 +1094,7 @@ class MainActivity extends Activity with TypedActivity {
                         textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
                         updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
-                          exercisePrice, riskFreeRate, volatility, rngSeed)
+                          exercisePrice, riskFreeRate, volatility, rngSeed, false)
 
                         val params = positiveBtnClk( lsmParamsDialog, textEntryView )
 
@@ -1106,17 +1123,9 @@ class MainActivity extends Activity with TypedActivity {
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
-              val jniFlag = {
-                val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
-                val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
-                if (scala_jni == "JNI")
-                  true
-                else
-                  false
-              }
               val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
 
-              updateSettingsStateData(jniFlag, uiUpdateInterval)
+              updateSettingsStateData(uiUpdateInterval)
 
               val params = positiveBtnClk( dialog, textEntryView )
             }
@@ -1130,16 +1139,8 @@ class MainActivity extends Activity with TypedActivity {
               val b = settingsDialog.getButton(DialogInterface.BUTTON_POSITIVE)
               b.setOnClickListener(new View.OnClickListener() {
                   override def onClick(view: View) {
-                    val jniFlag = {
-                      val id = textEntryView.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup].getCheckedRadioButtonId
-                      val scala_jni = ((textEntryView.findViewById(id).asInstanceOf[RadioButton]).getText.toString)
-                      if (scala_jni == "JNI")
-                        true
-                      else
-                        false
-                    }
                     val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
-                    updateSettingsStateData(jniFlag, uiUpdateInterval)
+                    updateSettingsStateData(uiUpdateInterval)
 
                     val params = positiveBtnClk( dialog, textEntryView )
                   }
@@ -1200,6 +1201,11 @@ class MainActivity extends Activity with TypedActivity {
               d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(seed.toString)
             }
           })
+        val rBtnGr = d.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup]
+        if (stateData.jniFlag)
+          rBtnGr.check(R.id.radioBtnJNI)
+        else 
+          rBtnGr.check(R.id.radioBtnScala)
       }
       case LsmParametersDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)
@@ -1218,14 +1224,19 @@ class MainActivity extends Activity with TypedActivity {
               d.findViewById(R.id.edittextRngSeed).asInstanceOf[EditText].setText(seed.toString)
             }
           })
-      }
-      case SettingsDlg => {
-        val stateData = StateData.restoreFromPreferences(getApplicationContext)
         val rBtnGr = d.findViewById(R.id.radiogroup_sj).asInstanceOf[RadioGroup]
+        val rBtnJNI = d.findViewById(R.id.radioBtnJNI).asInstanceOf[RadioButton]
+        val rBtnScala = d.findViewById(R.id.radioBtnScala).asInstanceOf[RadioButton]
+        rBtnGr.setEnabled(false)
+        rBtnJNI.setEnabled(false)
+        rBtnScala.setEnabled(false)
         if (stateData.jniFlag)
           rBtnGr.check(R.id.radioBtnJNI)
         else 
           rBtnGr.check(R.id.radioBtnScala)
+      }
+      case SettingsDlg => {
+        val stateData = StateData.restoreFromPreferences(getApplicationContext)
         d.findViewById(R.id.edittext9).asInstanceOf[EditText].setText(stateData.uiUpdateInterval.toString)
       }
       case HelpDlg => {
