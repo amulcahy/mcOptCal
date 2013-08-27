@@ -31,6 +31,7 @@ import _root_.android.os.{Binder, Bundle, Debug, Handler, IBinder, Message, Mess
 import _root_.android.preference._
 import _root_.android.util.{AttributeSet, Log}
 import _root_.android.view.{LayoutInflater, SurfaceView, View}
+import _root_.android.view.ViewGroup.LayoutParams
 import _root_.android.view.inputmethod.InputMethodManager
 import _root_.android.view.View.OnClickListener
 import _root_.android.view.ViewTreeObserver.OnGlobalLayoutListener
@@ -1206,6 +1207,7 @@ class MainActivity extends Activity with TypedActivity {
           rBtnGr.check(R.id.radioBtnJNI)
         else 
           rBtnGr.check(R.id.radioBtnScala)
+        d.getWindow().setLayout(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
       }
       case LsmParametersDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)

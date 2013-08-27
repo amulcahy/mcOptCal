@@ -24,45 +24,21 @@
 	<TextView
 	  android:id="@+id/textview_payofffn"
 	  android:text="@string/payofffn"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1"
 	  />
 	<EditText 
 	  android:id="@+id/edittext_payofffn" 
 	  android:inputType="textCapCharacters"
 	  android:text="strike-mcPrice" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<TextView
 	  android:id="@+id/textview_s"
-	  android:text="@string/stock_price_t"
-	  android:textSize="16sp"
-	  android:layout_span="1" 
-	  />
-	<TextView
-	  android:id="@+id/textview_s_v"
-	  android:text="@string/stock_price_t_val"
-	  android:textSize="16sp"
-	  android:layout_span="1" 
-	  />
-      </TableRow>
-      <TableRow
-	>
-	<TextView
-	  android:id="@+id/textview_savg"
-	  android:text="@string/avgstock_price"
-	  android:textSize="16sp"
-	  android:layout_span="1" 
-	  />
-	<TextView
-	  android:id="@+id/textview_savg_v"
-	  android:text="@string/avgstock_price_val"
-	  android:textSize="16sp"
-	  android:layout_span="1" 
+	  android:text="@string/stock_price_avgstock_price"
+	  android:textSize="12sp"
+	  android:layout_span="2" 
 	  />
       </TableRow>
       <TableRow
@@ -70,30 +46,27 @@
 	<TextView
 	  android:id="@+id/textview3"
 	  android:text="@string/stock_price"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
 	<EditText 
 	  android:id="@+id/edittext1" 
 	  android:inputType="numberDecimal"
 	  android:text="164.0" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<TextView
 	  android:id="@+id/textview4"
 	  android:text="@string/exercise_price"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
 	<EditText 
 	  android:id="@+id/edittext2" 
 	  android:inputType="numberDecimal"
 	  android:text="165.0" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
       </TableRow>
@@ -102,30 +75,27 @@
 	<TextView
 	  android:id="@+id/textview5"
 	  android:text="@string/risk_free_rate"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
 	<EditText 
 	  android:id="@+id/edittext3" 
 	  android:inputType="numberDecimal"
 	  android:text="0.0521" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<TextView
 	  android:id="@+id/textview6"
 	  android:text="@string/volatility"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
 	<EditText 
 	  android:id="@+id/edittext4" 
 	  android:inputType="numberDecimal"
 	  android:text="0.29" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
       </TableRow>
@@ -134,29 +104,26 @@
 	<TextView
 	  android:id="@+id/textview7"
 	  android:text="@string/time_to_expiration"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
 	<EditText 
 	  android:id="@+id/edittext5" 
 	  android:inputType="numberDecimal"
 	  android:text="0.0959" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
-      </TableRow>
-      <TableRow
-	>
 	<TextView
 	  android:text="@string/numpaths"
 	  android:layout_span="1" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  />
 	<EditText 
 	  android:id="@+id/editTextNumPaths" 
 	  android:inputType="number"
 	  android:text="10000" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
       </TableRow>
@@ -165,52 +132,19 @@
 	<TextView
 	  android:id="@+id/textview8"
 	  android:text="@string/numsteps"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
 	<EditText 
 	  android:id="@+id/edittext6" 
 	  android:inputType="number"
 	  android:text="30" 
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
-      </TableRow>
-      <TableRow
-	>
-	<TextView
-	  android:id="@+id/textviewRngSeed"
-	  android:text="@string/rng_seed"
-	  android:textSize="16sp"
-	  android:layout_span="1" 
-	  />
-	<EditText 
-	  android:id="@+id/edittextRngSeed" 
-	  android:inputType="number"
-	  android:text="1.0" 
-	  android:textSize="16sp"
-	  android:layout_span="1" 
-	  />
-      </TableRow>
-      <TableRow
-	>
-	<TextView
-	  android:text=""
-	  android:textSize="16sp"
-	  android:layout_span="1" 
-	  />
-	<Button 
-	  android:id="@+id/btnGenRngSeed" 
-	  android:text="@string/genRngSeed"
-	  android:textSize="16sp"
-	  android:layout_span="1" 
-	  />
-      </TableRow>
-      <TableRow
-	>
 	<TextView
 	  android:text="@string/scala_jni"
-	  android:textSize="16sp"
+	  android:textSize="12sp"
 	  android:layout_span="1"
 	  />
 	<RadioGroup android:id="@+id/radiogroup_sj" 
@@ -219,14 +153,44 @@
 	  >
 	  <RadioButton android:id="@+id/radioBtnScala"
 	    android:text="@string/scala" 
-	    android:textSize="16sp"
+	    android:textSize="12sp"
 	    android:checked="true" 
 	    />
 	  <RadioButton android:id="@+id/radioBtnJNI"
 	    android:text="@string/jni" 
-	    android:textSize="16sp"
+	    android:textSize="12sp"
 	    />
 	</RadioGroup>
+      </TableRow>
+      <TableRow
+	>
+	<TextView
+	  android:id="@+id/textviewRngSeed"
+	  android:text="@string/rng_seed"
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+	<EditText 
+	  android:id="@+id/edittextRngSeed" 
+	  android:inputType="number"
+	  android:text="1.0" 
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+	<Button 
+	  android:id="@+id/btnGenRngSeed" 
+	  android:text="@string/genRngSeed"
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  android:padding="0dp"
+	  android:layout_margin="0dp"
+	  android:layout_height="30dp"
+	  />
+	<TextView
+	  android:text=""
+	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
       </TableRow>
     </TableLayout>
   </ScrollView>

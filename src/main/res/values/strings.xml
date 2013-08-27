@@ -15,6 +15,7 @@
   <string name="call_put">Call / Put</string>
   <string name="call">Call</string>
   <string name="put">Put</string>
+  <string name="stock_price_avgstock_price">(Expiry Price: S, Arithmetic Average: SAVG)</string>
   <string name="stock_price_t">Expiry Price (S)</string>
   <string name="stock_price_t_val">* MC Simulation *</string>
   <string name="avgstock_price">Arithmetic Average (SAVG)</string>
