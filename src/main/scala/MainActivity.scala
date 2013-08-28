@@ -587,7 +587,12 @@ class MainActivity extends Activity with TypedActivity {
 
           progress1.setVisibility(View.VISIBLE)
           progress1.setProgress(0)
-          val newData = "\nStart MC calculation:\n"+params
+          val newData = {
+            if (isAsian)
+              "\nStart Asian MC calculation:\n"+params
+            else
+              "\nStart LSM MC calculation:\n"+params
+          }
           cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData) //todo 
           updateOutputText(cacheData.statusStr)
           if (isAsian)
@@ -1049,8 +1054,9 @@ class MainActivity extends Activity with TypedActivity {
                 case _ => {
                   textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
+                  val stateData = StateData.restoreFromPreferences(getApplicationContext)
                   updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
-                    exercisePrice, riskFreeRate, volatility, rngSeed, false)
+                    exercisePrice, riskFreeRate, volatility, rngSeed, stateData.jniFlag)
 
                   val params = positiveBtnClk( dialog, textEntryView )
 
@@ -1094,8 +1100,9 @@ class MainActivity extends Activity with TypedActivity {
                       case _ => {
                         textEntryView.findViewById(R.id.edittext_payofffn).asInstanceOf[EditText].setError(null)
 
+                        val stateData = StateData.restoreFromPreferences(getApplicationContext)
                         updateParamsStateData( payoffFnStr, numPaths, timeToExpiration, numSteps, stock, 
-                          exercisePrice, riskFreeRate, volatility, rngSeed, false)
+                          exercisePrice, riskFreeRate, volatility, rngSeed, stateData.jniFlag)
 
                         val params = positiveBtnClk( lsmParamsDialog, textEntryView )
 
@@ -1232,9 +1239,9 @@ class MainActivity extends Activity with TypedActivity {
         rBtnGr.setEnabled(false)
         rBtnJNI.setEnabled(false)
         rBtnScala.setEnabled(false)
-        if (stateData.jniFlag)
-          rBtnGr.check(R.id.radioBtnJNI)
-        else 
+        //if (stateData.jniFlag)
+        //  rBtnGr.check(R.id.radioBtnJNI)
+        //else 
           rBtnGr.check(R.id.radioBtnScala)
       }
       case SettingsDlg => {

@@ -487,18 +487,18 @@ case class LsmParams(
   override def toString(): String = {
     val strB = new StringBuilder
     strB.append("[\n")
-    strB.append(" payoffFn: "+payoffFnStr+"\n")
+    strB.append(" payoffFn:   "+payoffFnStr+"\n")
     val formatStr = "% .3f"
-    strB.append(" numPaths: "+numPaths+"\n")
-    strB.append(" numSteps: "+numSteps+"\n")
-    strB.append(" dT:\t"+(formatStr.format(dT))+"\n")
-    strB.append(" T:\t"++(formatStr.format(expiry.toDouble))+"\n")
-    strB.append(" S0:\t"+(formatStr.format(stock))+"\n")
-    strB.append(" K:\t"+(formatStr.format(strike))+"\n")
-    strB.append(" R:\t"+(formatStr.format(rate))+"\n")
-    strB.append(" V:\t"+(formatStr.format(volatility))+"\n")
-    strB.append(" rngSeed:  "+rngSeed+"\n")
-    strB.append(" jniFlag:  todo"+"\n")
+    strB.append(" dT:        "+(formatStr.format(dT))+"\n")
+    strB.append(" T:         "++(formatStr.format(expiry.toDouble))+"\n")
+    strB.append(" S0:        "+(formatStr.format(stock))+"\n")
+    strB.append(" K:         "+(formatStr.format(strike))+"\n")
+    strB.append(" R:         "+(formatStr.format(rate))+"\n")
+    strB.append(" V:         "+(formatStr.format(volatility))+"\n")
+    strB.append(" numPaths:   "+numPaths+"\n")
+    strB.append(" numSteps:   "+numSteps+"\n")
+    strB.append(" rngSeed:    "+rngSeed+"\n")
+    strB.append(" antithetic: "+antithetic+"\n")
     strB.append("]\n")
     strB.result
   }

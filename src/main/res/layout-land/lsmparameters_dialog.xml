@@ -34,6 +34,11 @@
 	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
+	<View
+	  android:layout_width="1dp"
+	  android:layout_height="1dp"
+	  android:layout_span="1" 
+	  />
 	<TextView
 	  android:id="@+id/textview_s"
 	  android:text="@string/stock_price_avgstock_price"
@@ -54,6 +59,11 @@
 	  android:inputType="numberDecimal"
 	  android:text="164.0" 
 	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+	<View
+	  android:layout_width="1dp"
+	  android:layout_height="1dp"
 	  android:layout_span="1" 
 	  />
 	<TextView
@@ -85,6 +95,11 @@
 	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
+	<View
+	  android:layout_width="1dp"
+	  android:layout_height="1dp"
+	  android:layout_span="1" 
+	  />
 	<TextView
 	  android:id="@+id/textview6"
 	  android:text="@string/volatility"
@@ -114,6 +129,11 @@
 	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
+	<View
+	  android:layout_width="1dp"
+	  android:layout_height="1dp"
+	  android:layout_span="1" 
+	  />
 	<TextView
 	  android:text="@string/numpaths"
 	  android:layout_span="1" 
@@ -140,6 +160,11 @@
 	  android:inputType="number"
 	  android:text="30" 
 	  android:textSize="12sp"
+	  android:layout_span="1" 
+	  />
+	<View
+	  android:layout_width="1dp"
+	  android:layout_height="1dp"
 	  android:layout_span="1" 
 	  />
 	<TextView
@@ -177,19 +202,19 @@
 	  android:textSize="12sp"
 	  android:layout_span="1" 
 	  />
+	<View
+	  android:layout_width="1dp"
+	  android:layout_height="1dp"
+	  android:layout_span="1" 
+	  />
 	<Button 
 	  android:id="@+id/btnGenRngSeed" 
 	  android:text="@string/genRngSeed"
 	  android:textSize="12sp"
-	  android:layout_span="1" 
+	  android:layout_span="2" 
 	  android:padding="0dp"
 	  android:layout_margin="0dp"
 	  android:layout_height="30dp"
-	  />
-	<TextView
-	  android:text=""
-	  android:textSize="12sp"
-	  android:layout_span="1" 
 	  />
       </TableRow>
     </TableLayout>
