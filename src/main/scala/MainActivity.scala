@@ -154,13 +154,12 @@ class mcOptCalService extends Service with Actor {
   var calcRunning = false
   var calcStr: String = "idle"
 
-  var mClients = List[Messenger]()
+  //var mClients = List[Messenger]()
 
   var statusStr = ""
   var calcComplete = false
   var progressState = false
   var progressVal = 0
-  //var priceAry: Array[Array[Double]] = Array.fill(10, 10)(1.0d) //todo
   var priceAry: Array[Array[Double]] = null //todo
 
   class mcOptCalServiceBinder extends Binder {
@@ -478,11 +477,9 @@ object CacheData {
 class MainActivity extends Activity with TypedActivity {
 
   /** Load the native library where the native method
-  * is stored.
-  */
+   *  is stored.
+   */
   System.loadLibrary("mcOptCal-jni")
-
-  //@native def stringFromJNI(): String
 
   private val TAG: String = "MainActivity"
   private val ParametersDlg = 1
@@ -495,8 +492,6 @@ class MainActivity extends Activity with TypedActivity {
   var intent: Intent = null
   var calc: Calc = null
   var cacheData: CacheData = _
-  var funcAry: Array[Array[Double]] = Array.fill(10, 10)(0d) //todo
-  //var scala_jni = "Scala"
 
   private var mService: mcOptCalService = _
   private var mBound: Boolean = false
@@ -624,7 +619,6 @@ class MainActivity extends Activity with TypedActivity {
 
   override def onCreate(bundle: Bundle) {
     super.onCreate(bundle)
-    //CacheData.dump(cacheData)
     setContentView(R.layout.main)
 
     progress1.setVisibility(View.INVISIBLE)
@@ -633,15 +627,7 @@ class MainActivity extends Activity with TypedActivity {
 
     btnASIAN.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(AsianParametersDlg) } })
 
-    btnCopy.setOnClickListener(new View.OnClickListener() {
-        def onClick(v : View) {
-          val clipboard = getSystemService(Context.CLIPBOARD_SERVICE).asInstanceOf[android.text.ClipboardManager]
-          //clipboard.setText("text to clip")
-          val text = textview9mcresult.getText()
-          clipboard.setText(text)
-          showDialog(CopyDlg)
-        }
-      })
+    btnCopy.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(CopyDlg) } })
 
     btnSettings.setOnClickListener(new View.OnClickListener() { def onClick(v : View) { showDialog(SettingsDlg) } })
 
@@ -649,7 +635,6 @@ class MainActivity extends Activity with TypedActivity {
 
     btnClr.setOnClickListener(new View.OnClickListener() {
         def onClick(v : View) {
-          //println(stringFromJNI)
           cacheData = new CacheData(cacheData.samplePriceArray, "")
           updateOutputText(cacheData.statusStr)
         }
@@ -690,9 +675,7 @@ class MainActivity extends Activity with TypedActivity {
   def datFilter(fn :String) = fn.toLowerCase.endsWith("dat")
 
   def cleanTempFiles() {
-    //val dataDir = "/sdcard/mcTempFiles/" // todo
     val dataDir = getApplicationContext.getExternalFilesDir(null)
-    //val dir = new File(dataDir)
     val fileList = dataDir.list.filter(datFilter _)
     Log.e(TAG, "cleanTempFiles")
     for (fileName <- fileList) {
@@ -1169,6 +1152,9 @@ class MainActivity extends Activity with TypedActivity {
         .create()
       }
       case CopyDlg => {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE).asInstanceOf[android.text.ClipboardManager]
+        val text = textview9mcresult.getText()
+        clipboard.setText(text)
         val textEntryView = factory.inflate(R.layout.copy_dialog, null)
         new AlertDialog.Builder(this)
         .setIcon(R.drawable.logo)

@@ -551,9 +551,6 @@ object lsm {
 
       maxMinAvgMatrix(i*2, 2) = 0.0
       maxMinAvgMatrix(i*2+1, 2) = 0.0
-      //maxMinAvgMatrix(i*2, 2) = params.stock/(n-1)
-      //maxMinAvgMatrix(i*2+1, 2) = params.stock/(n-1)
-            //maxCF = max(maxCF, cfMatrix(i, j)*exp(-params.rate*((j-(step-1))*params.dT)))
       while (j < n) {
         val dZ = dgRng.nextGaussian //val dZ = rng.nextGaussian
         s1 = s1*exp(a + b*dZ)
@@ -571,8 +568,6 @@ object lsm {
 
         j += 1
       }
-      //maxMinAvgMatrix(i*2, 2) = maxMinAvgMatrix(i*2, 2) * exp(-params.rate*params.expiry)
-      //maxMinAvgMatrix(i*2+1, 2) = maxMinAvgMatrix(i*2+1, 2) * exp(-params.rate*params.expiry)
       i += 1
     }
 
@@ -740,39 +735,6 @@ object lsm {
     (optionValue, stdErr)
   }
 
-  /*val asianOptionValueStdErr = (params: LsmParams, priceMatrix: Matrix, maxMinAvgMatrix: Matrix) => {
-    val m = params.numPaths
-    val pvArray = Array.ofDim[Double](m)
-
-    var i = 0
-    var n = 0
-    var mean = 0.0D
-    var m2 = 0.0D
-    while (i < m) {
-      if (params.payoffFn(priceMatrix(i, params.numSteps), maxMinAvgMatrix(i, 2), params) > 0)
-          pvArray(i) = params.payoffFn(priceMatrix(i, params.numSteps), maxMinAvgMatrix(i, 2), params)*exp(-params.rate*params.expiry)
-
-      val x = pvArray(i)
-      n += 1
-      val delta = x - mean
-      mean += delta/n
-      m2 += delta*(x - mean)
-
-      i += 1
-    }
-    val optionValue = pvArray.sum / m
-    val variance = m2/(n-1)
-    val sampStdDev = sqrt(variance)
-    val stdErr = sampStdDev/sqrt(m)
-    if (DEBUG) {
-      println("pvArray")
-      prettyPrint(pvArray)
-    }
-    (optionValue, stdErr)
-  }*/
-
-
-
   /**
     * Recurse through the cash flow matrix calculating the cash flows at each time step.
     *
@@ -783,7 +745,6 @@ object lsm {
     * @param basisFn The basis function.
     *
     */
-
   val recurseCF = (initStep: Int, params: LsmParams, priceMatrix: Matrix, maxMinAvgMatrix: Matrix, cfMatrix: Matrix, basisFn: (Double) => Array[Double], callerService: Actor) => {
     assert(priceMatrix.rows == params.numPaths)
     assert(priceMatrix.cols == params.numSteps+1)
@@ -890,16 +851,24 @@ object lsm {
     val msg = "calcAsianOptionValue path"
     val payOffFn = (avg: Double) => params.payoffFn(0.0D, avg, params)
     val exp_a = exp(a)
+    val antithetic = params.antithetic
     dgRng.setSeed(params.rngSeed)
 
     // AndroidSpecificCode
     var startTime = System.currentTimeMillis
     val uiUpdateInterval = params.uiUpdateInterval
     // AndroidSpecificCode END */
-    while ((i < params.numPaths/2) && !abort) {
+    val total = {
+      if (antithetic)
+        params.numPaths/2
+      else
+        params.numPaths
+    }
+    while ((i < total) && !abort) {
       var s1 = params.stock
-      var s2 = params.stock
       var avgX = 0.0D
+
+      var s2 = params.stock
       var avgY = 0.0D
 
       var j = 1
@@ -907,10 +876,12 @@ object lsm {
         val dZ = dgRng.nextGaussian //val dZ = rng.nextGaussian
         val exp_bdZ = exp(b*dZ)
         s1 = s1*exp_a*exp_bdZ
-        s2 = s2*exp_a/exp_bdZ // antithetic path
-
         avgX = avgX + s1/params.numSteps
-        avgY = avgY + s2/params.numSteps
+
+        if (antithetic) {
+          s2 = s2*exp_a/exp_bdZ // antithetic path
+          avgY = avgY + s2/params.numSteps
+        }
 
         j += 1
 
@@ -940,23 +911,25 @@ object lsm {
       else
         x = 0.0D
 
-      val payOffY = payOffFn(avgY)
-      if (payOffY > 0)
-        y = payOffY*pvDiscount
-      else
-        y = 0.0D
-
       sum = sum + x
       n += 1
       val deltaX = x - mean
       mean += deltaX/n
       m2 += deltaX*(x - mean)
 
-      sum = sum + y
-      n += 1
-      val deltaY = y - mean
-      mean += deltaY/n
-      m2 += deltaY*(y - mean)
+      if (antithetic) {
+        val payOffY = payOffFn(avgY)
+        if (payOffY > 0)
+          y = payOffY*pvDiscount
+        else
+          y = 0.0D
+
+        sum = sum + y
+        n += 1
+        val deltaY = y - mean
+        mean += deltaY/n
+        m2 += deltaY*(y - mean)
+      }
 
       i += 1
     }
