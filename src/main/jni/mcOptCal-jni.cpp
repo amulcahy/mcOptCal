@@ -390,7 +390,7 @@ extern "C" {
    * Signature: (Lcom/dragongate_technologies/mcOptCal/Calc;Lcom/dragongate_technologies/mcOptCal/LsmParams;Lscala/util/Random;[Ljava/lang/String;)[D
    */
   JNIEXPORT jdoubleArray JNICALL Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI
-    (JNIEnv *env, jobject obj, jobject calcObject, jobject paramsObject, jobject rngObject, jobjectArray rpnAry)
+    (JNIEnv *env, jobject obj, jobject calcObject, jobject paramsObject, jobjectArray rpnAry)
     {
       __android_log_print(ANDROID_LOG_INFO,"ASIAN","Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI");
 
@@ -412,7 +412,7 @@ extern "C" {
 
       jclass calcClass = env->GetObjectClass(calcObject);
       jclass paramsClass = env->GetObjectClass(paramsObject);
-      jclass rngClass = env->GetObjectClass(rngObject);
+      //jclass rngClass = env->GetObjectClass(rngObject);
       //jmethodID rngId = env->GetMethodID(rngClass, "nextGaussian", "()D");
       jmethodID jniUpdateUIID = env->GetMethodID(calcClass, "jniUpdateUI", "(Ljava/lang/String;II)Z");
 

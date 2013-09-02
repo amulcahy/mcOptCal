@@ -113,11 +113,10 @@ class Calc extends Actor {
             val rpn = lsm.EqnRPNParser.rpnParseEval("SAVG-K", lsmCalcParams.params)
             Log.d(TAG, "RPN = "+rpn)
             val rpnAry = rpn.toArray
-            Log.d("ASIAN", "calling native calcAsianOptionValueJNI")
             val startTime = System.nanoTime
             val lsmJNI = new lsm
             Log.d("ASIAN", "lsmCalcParams.params"+lsmCalcParams.params)
-            val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(calc, lsmCalcParams.params, lsm.rng, rpnAry)
+            val asianOVJNI = lsmJNI.calcAsianOptionValueJNI(calc, lsmCalcParams.params, rpnAry)
             val endTime = System.nanoTime
             Log.d("ASIAN", "calcAsianOptionValueJNI = "+asianOVJNI)
             callerService ! mcOptCalServiceAsianResult((asianOVJNI(0), asianOVJNI(1), null), ((endTime-startTime)/1e6).toLong) // */
@@ -778,7 +777,7 @@ class MainActivity extends Activity with TypedActivity {
     params
   }
   
-  private def updateSettingsStateData(uiUpdateInterval: Int) {
+  private def updateSettingsStateData(numSamples: Int, threshold: Int, uiUpdateInterval: Int) {
     val stateData = StateData.restoreFromPreferences(getApplicationContext)
     val newStateData = StateData(
       stateData.payoffFnStr,
@@ -789,8 +788,8 @@ class MainActivity extends Activity with TypedActivity {
       stateData.exercisePrice,
       stateData.riskFreeRate,
       stateData.volatility,
-      stateData.numSamples,
-      stateData.threshold,
+      numSamples,
+      threshold,
       uiUpdateInterval, 
       stateData.jniFlag,
       stateData.rngSeed )
@@ -1114,11 +1113,12 @@ class MainActivity extends Activity with TypedActivity {
         .setView(textEntryView)
         .setPositiveButton(R.string.ok,  new DialogInterface.OnClickListener() {
             override def onClick(dialog: DialogInterface, id: Int) {
+              val numSamples = textEntryView.findViewById(R.id.edittext7).asInstanceOf[EditText].getText().toString.toInt
+              val threshold = textEntryView.findViewById(R.id.edittext8).asInstanceOf[EditText].getText().toString.toInt
               val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
 
-              updateSettingsStateData(uiUpdateInterval)
-
-              val params = positiveBtnClk( dialog, textEntryView )
+              updateSettingsStateData(numSamples, threshold, uiUpdateInterval)
+              val params = positiveBtnClk( dialog, textEntryView ) // not required?
             }
           })
         .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
@@ -1130,10 +1130,12 @@ class MainActivity extends Activity with TypedActivity {
               val b = settingsDialog.getButton(DialogInterface.BUTTON_POSITIVE)
               b.setOnClickListener(new View.OnClickListener() {
                   override def onClick(view: View) {
+                    val numSamples = textEntryView.findViewById(R.id.edittext7).asInstanceOf[EditText].getText().toString.toInt
+                    val threshold = textEntryView.findViewById(R.id.edittext8).asInstanceOf[EditText].getText().toString.toInt
                     val uiUpdateInterval = textEntryView.findViewById(R.id.edittext9).asInstanceOf[EditText].getText().toString.toInt
-                    updateSettingsStateData(uiUpdateInterval)
+                    updateSettingsStateData(numSamples, threshold, uiUpdateInterval)
 
-                    val params = positiveBtnClk( dialog, textEntryView )
+                    val params = positiveBtnClk( dialog, textEntryView ) // not required?
                   }
                 })
             }
@@ -1232,12 +1234,12 @@ class MainActivity extends Activity with TypedActivity {
       }
       case SettingsDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)
+        d.findViewById(R.id.edittext7).asInstanceOf[EditText].setText(stateData.numSamples.toString)
+        d.findViewById(R.id.edittext8).asInstanceOf[EditText].setText(stateData.threshold.toString)
         d.findViewById(R.id.edittext9).asInstanceOf[EditText].setText(stateData.uiUpdateInterval.toString)
       }
-      case HelpDlg => {
-      }
-      case CopyDlg => {
-      }
+      case HelpDlg => { }
+      case CopyDlg => { }
     }
   }
 

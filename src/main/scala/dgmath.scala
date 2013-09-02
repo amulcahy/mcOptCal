@@ -506,7 +506,7 @@ case class LsmParams(
 
 class lsm {
 
-  @native def calcAsianOptionValueJNI(calcObj: Calc, params: LsmParams, rng: Random, rpn: Array[String]): Array[Double]
+  @native def calcAsianOptionValueJNI(calcObj: Calc, params: LsmParams, rpn: Array[String]): Array[Double]
 
 }
 
@@ -518,7 +518,7 @@ object lsm {
 
   private val DEBUG = false
 
-  val rng: Random = new Random
+  val rng: Random = new Random // todo remove 
   val dgRng: dgRandom = new dgRandom
 
   private val sqr = (x: Double) => (x * x)

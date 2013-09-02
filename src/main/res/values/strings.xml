@@ -33,39 +33,42 @@
   <string name="scala_jni">Scala/JNI (Asian only)</string>
   <string name="scala">Scala</string>
   <string name="jni">JNI</string>
-  <string name="rng_seed">RNG Seed</string>
+  <string name="rng_seed">PRNG Seed</string>
   <string name="genRngSeed">Generate Seed</string>
 
 <string name="help_content">
 \nmcOptCal\n
-An App to calculate American and Bermudan option prices using the LSM (Least Squares Monte Carlo) method. European option prices can also be calculated using the Black Scholes formula. The option payoff function is user-definable. An android service is used to enable long running calculations to continue in the background while other activities are in the foreground.\n
-Note: if the parameters for the number of monte carlo simulation paths or time steps are set too large, the device responsiveness may slow down while the calculation is running.\n
+Calculate the prices of American / Bermudan options using the LSM (Least Squares Monte Carlo) method, Asian options by Monte Carlo simulation and European options by the Black Scholes formula. The option payoff function and pseudo random number generator seed are user-definable and an android service is used to enable calculations to continue in the background while other activities are in the foreground.\n
+Note: if the Monte Carlo simulation parameters are set too large, the device responsiveness may slow down while the calculation is running.\n
 \n
 Web:    http://dragongate-technologies.com \n
 Source: https://github.com/amulcahy/mcOptCal \n
 \n
-v1.03 - Add Asian Option support.\n
+v1.04 - Change to an internal pseudo random number generator, add the ability to set the PRNG seed, add an option use use JNI code for Asian Option calculations.\n
 \n
 BS\n
 Input the option parameters and calculate the value of a European option using the Black Scholes formula.
 \n
 ASIAN\n
-Input the option parameters and calculate the value of an Asian option using the Monte-Carlo method.\n
+Input the option parameters and calculate the value of an Asian option by Monte Carlo simulation.\n
 \n
 LSM\n
-Input the option parameters and calculate the value of an American/Bermudan option using the Least Squares Monte-Carlo method.\n
+Input the option parameters and calculate the value of an American/Bermudan option using the Least Squares Monte Carlo method.\n
 \n
 Option PARAMETERS\n
 Payoff Function: eg.  K-S  (Put Option),  S-K  (Call Option), SAVG-K (Asian Call Option)\n
-Expiry Price (S) *  MC Simulation *\n
-Arithmetic Average (SAVG) * MC Simulation *\n
+Expiry Price (S): calculated by MC Simulation.\n
+Arithmetic Average (SAVG): calculated by MC Simulation.\n
 Current Price (S0)\n
 Exercise Price (K)\n
 Annual Risk Free Rate (R)\n
 Volatility \u03C3 (V)\n
-Time to Expiration in Years (T)\n
-numPaths: The number of monte-carlo simulation paths. Too large a value may slow down the device response.\n
+Years to Expiry (T)\n
+numPaths: The number of Monte Carlo simulation paths. Too large a value may slow down the device response.\n
 numSteps: The number of exercise steps per year.\n
+PRNG Seed: The pseudo random number generator seed.\n
+Generate Seed: Generate a random  seed for the pseudo random number generator.\n
+Scala/JNI: Select the Scala version or JNI version of the option pricing code. (the current JNI implementation only includes Asian option support)\n
 \n
 COPY\n
 Copy the output window contents to the clipboard.\n

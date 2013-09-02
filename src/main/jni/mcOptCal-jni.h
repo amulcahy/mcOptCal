@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     com_dragongate_technologies_mcOptCal_lsm
  * Method:    calcAsianOptionValueJNI
- * Signature: (Lcom/dragongate_technologies/mcOptCal/Calc;Lcom/dragongate_technologies/mcOptCal/LsmParams;Lscala/util/Random;[Ljava/lang/String;)[D
+ * Signature: (Lcom/dragongate_technologies/mcOptCal/Calc;Lcom/dragongate_technologies/mcOptCal/LsmParams;[Ljava/lang/String;)[D
  */
 JNIEXPORT jdoubleArray JNICALL Java_com_dragongate_1technologies_mcOptCal_lsm_calcAsianOptionValueJNI
-  (JNIEnv *, jobject, jobject, jobject, jobject, jobjectArray);
+  (JNIEnv *, jobject, jobject, jobject, jobjectArray);
 
 #ifdef __cplusplus
 }
