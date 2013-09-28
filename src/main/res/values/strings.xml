@@ -44,7 +44,7 @@ Note: if the Monte Carlo simulation parameters are set too large, the device res
 Web:    http://dragongate-technologies.com \n
 Source: https://github.com/amulcahy/mcOptCal \n
 \n
-v1.04 - Change to an internal pseudo random number generator, add the ability to set the PRNG seed, add an option use use JNI code for Asian Option calculations.\n
+v1.04 - Change to an internal pseudo random number generator, add the ability to set the PRNG seed, add an option to use JNI code for Asian Option calculations.\n
 \n
 BS\n
 Input the option parameters and calculate the value of a European option using the Black Scholes formula.
@@ -67,7 +67,7 @@ Years to Expiry (T)\n
 numPaths: The number of Monte Carlo simulation paths. Too large a value may slow down the device response.\n
 numSteps: The number of exercise steps per year.\n
 PRNG Seed: The pseudo random number generator seed.\n
-Generate Seed: Generate a random  seed for the pseudo random number generator.\n
+Generate Seed: Generate a random seed for the pseudo random number generator.\n
 Scala/JNI: Select the Scala version or JNI version of the option pricing code. (the current JNI implementation only includes Asian option support)\n
 \n
 COPY\n

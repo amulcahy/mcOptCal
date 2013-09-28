@@ -868,6 +868,9 @@ class MainActivity extends Activity with TypedActivity {
               val params = positiveBtnClk( dialog, textEntryView )
 
               val strB = new StringBuilder
+              //val dWidth = getWindowManager().getDefaultDisplay().getWidth()
+              //val dHeight = getWindowManager().getDefaultDisplay().getHeight()
+              //strB.append("\nDisplay Width : \n"+dWidth+"dp   "+"Display Height : \n"+dHeight+"dp\n")
               strB.append("\nStart BS calculation:\n")
               strB.append(params)
 
@@ -1231,6 +1234,7 @@ class MainActivity extends Activity with TypedActivity {
         //  rBtnGr.check(R.id.radioBtnJNI)
         //else 
           rBtnGr.check(R.id.radioBtnScala)
+        d.getWindow().setLayout(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
       }
       case SettingsDlg => {
         val stateData = StateData.restoreFromPreferences(getApplicationContext)
