@@ -506,7 +506,9 @@ case class LsmParams(
 
 class lsm {
 
+  // AndroidSpecificCode
   @native def calcAsianOptionValueJNI(calcObj: Calc, params: LsmParams, rpn: Array[String]): Array[Double]
+  // AndroidSpecificCode END */
 
 }
 
@@ -765,7 +767,6 @@ object lsm {
       if (System.currentTimeMillis - startTime > uiUpdateInterval) {
         startTime = System.currentTimeMillis
       //if (step%params.uiUpdateInterval == 0) {
-        // AndroidSpecificCode
         if (callerService != null)
           callerService ! lsmStatusReport(step, params.numSteps, msg)
         else
@@ -805,6 +806,7 @@ object lsm {
     */
   val lsmOptionValue = (params: LsmParams, callerService: Actor) => {
     Matrix.threshold = params.threshold
+    dgRng.setSeed(params.rngSeed)
     val genMatrix = genPriceMatrix(params)
     val priceMatrix = genMatrix._1
     val maxMinAvgMatrix = genMatrix._2

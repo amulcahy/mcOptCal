@@ -44,7 +44,7 @@ Note: if the Monte Carlo simulation parameters are set too large, the device res
 Web:    http://dragongate-technologies.com \n
 Source: https://github.com/amulcahy/mcOptCal \n
 \n
-v1.04 - Change to an internal pseudo random number generator, add the ability to set the PRNG seed, add an option to use JNI code for Asian Option calculations.\n
+v1.05 - Fix a bug that prevented the PRNG seed from being applied in LSM mode.\n
 \n
 BS\n
 Input the option parameters and calculate the value of a European option using the Black Scholes formula.
