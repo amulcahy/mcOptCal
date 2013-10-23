@@ -15,7 +15,7 @@ Androidサービスの利用により、長い継続計算をバックグラウ�
 ウェブ： http://dragongate-technologies.com \n
 ソース： https://github.com/amulcahy/mcOptCal \n
 \n
-v1.05 - LSMモードでPRNGシード不適用のバグを修正。\n
+v1.06 - BS プット・コールの値を逆で表示したバグを修正。\n
 \n
 BS\n
 オプション・パラメーター入力により、ブラック-ショールズ方程式でヨーロピアンオプション価格が計算可能。\n

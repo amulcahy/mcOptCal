@@ -6,9 +6,9 @@ import AndroidKeys._
 object General {
   val settings = Defaults.defaultSettings ++ Seq (
     name := "mcOptCal",
-    version := "1.05",
-    versionCode := 6,
-    versionName := "1.05",
+    version := "1.06",
+    versionCode := 7,
+    versionName := "1.06",
     scalaVersion := "2.9.2",
     platformName in Android := "android-15"
   )

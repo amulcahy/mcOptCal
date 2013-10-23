@@ -887,7 +887,7 @@ class MainActivity extends Activity with TypedActivity {
                   params.rate,
                   params.expiry,
                   params.volatility )
-                strB.result+"BS Put Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Call Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
+                strB.result+"BS Call Option Value  = "+"%1.4f".format(bsEuroCallVal)+"\nBS Put Option Value = "+"%1.4f".format(bsEuroPutVal)+"\n"
               }
               cacheData = new CacheData(cacheData.samplePriceArray, cacheData.statusStr+newData)
               updateOutputText(cacheData.statusStr)
